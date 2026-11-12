@@ -1,0 +1,6 @@
+Third-party files in this folder, unmodified:
+
+axe.min.js       axe-core, Deque Systems, Mozilla Public License 2.0
+                 https://github.com/dequelabs/axe-core
+sql-wasm.js      sql.js, MIT License
+sql-wasm.wasm    https://github.com/sql-js/sql.js (SQLite itself is in the public domain)
