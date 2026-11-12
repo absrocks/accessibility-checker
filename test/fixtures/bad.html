@@ -1,0 +1,26 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Fixture with known problems</title>
+</head>
+<body>
+  <main>
+    <h1>Known problems</h1>
+    <img src="data:image/gif;base64,R0lGODlhAQABAAAAACw=" width="40" height="40">
+    <form>
+      <input type="text" name="q">
+      <button type="button"></button>
+    </form>
+    <p style="color:#bbbbbb;background:#ffffff">This text has very low contrast.</p>
+    <h2 aria-checked="true">A heading with a state it cannot have</h2>
+    <nav aria-expanded="false" aria-label="Pages">
+      <a href="good.html">Good page</a>
+      <a href="good.html?a">click here</a>
+      <a href="good.html?b">&rarr;</a>
+      <a href="good.html?c">Go</a>
+    </nav>
+    <svg width="20" height="20" viewBox="0 0 20 20"><circle cx="10" cy="10" r="8"></circle></svg>
+  </main>
+</body>
+</html>

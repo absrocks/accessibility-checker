@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Accessibility Checker</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to main content</a>
+  <header class="top">
+    <a class="brand" href="#/">
+      <svg aria-hidden="true" viewBox="0 0 24 24" width="24" height="24"><circle cx="12" cy="12" r="10.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M7 12.5l3.2 3.2L17 8.8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Accessibility Checker
+    </a>
+    <nav aria-label="Main">
+      <ul>
+        <li><a href="#/" data-nav="overview">Overview</a></li>
+        <li><a href="#/scans" data-nav="scans">Scans</a></li>
+        <li><a href="#/findings" data-nav="findings">Findings</a></li>
+      </ul>
+    </nav>
+    <span class="engine" id="engine"></span>
+  </header>
+
+  <main id="main" tabindex="-1"></main>
+
+  <div id="status" class="visually-hidden" role="status" aria-live="polite"></div>
+
+  <dialog id="finding-dialog" aria-labelledby="finding-title">
+    <div id="finding-body"></div>
+  </dialog>
+
+  <script type="module" src="/app.js"></script>
+</body>
+</html>
