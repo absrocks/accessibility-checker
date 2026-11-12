@@ -74,7 +74,8 @@ async function explainFailure(url) {
   }
   try {
     await fetch(url, { mode: 'no-cors', credentials: 'omit', cache: 'no-store' });
-    return 'This site does not let other websites read its pages, so it cannot be scanned from here. Use the checker on your own computer for it.';
+    return 'This site does not let other websites read its pages, so it cannot be scanned from here. Use the checker on your own computer for it. ' +
+      '(If you run the site: it would need to send the header Access-Control-Allow-Origin.)';
   } catch {
     return 'This address could not be reached. Check it and your connection, then run the scan again.';
   }
