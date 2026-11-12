@@ -4,7 +4,7 @@
 import { CUSTOM_RULES, shapeCustomResults } from './custom-rules.js';
 import { pageScore } from './score.js';
 import { isCrawlable, normalizeUrl } from './urls.js';
-import { STANDARDS, levelOfRule } from './wcag.js';
+import { STANDARDS, isScored } from './wcag.js';
 
 export const MAX_HTML = 2_000;
 
@@ -34,8 +34,17 @@ export function tagsFor(scan) {
 
 export const devicesFor = (scan) => (VIEWPORTS[scan.viewport] || VIEWPORTS.desktop).devices;
 
-/** Options passed to axe.run. Frames are skipped: axe would have to be injected into each one. */
-export const axeRunOptions = (tags) => ({ runOnly: { type: 'tag', values: tags }, iframes: false, elementRef: false });
+/**
+ * Options passed to axe.run. Frames are skipped: axe would have to be injected
+ * into each one. heading-order is off because the custom rule
+ * heading-level-skipped reports the same headings and more.
+ */
+export const axeRunOptions = (tags) => ({
+  runOnly: { type: 'tag', values: tags },
+  rules: { 'heading-order': { enabled: false } },
+  iframes: false,
+  elementRef: false,
+});
 
 /**
  * Runs inside the page, after axe-core is loaded there. Returns a trimmed,
@@ -178,7 +187,7 @@ export function combineResults(axeResult, customRaw, url, note = null) {
 /** Best-practice rules are reported but do not count towards the score. */
 export function markScored(rules, meta) {
   const tags = new Map(meta.map((m) => [m.id, m.tags]));
-  return rules.map((r) => ({ ...r, scored: levelOfRule(tags.get(r.id)) !== 'Best practice' }));
+  return rules.map((r) => ({ ...r, scored: isScored(tags.get(r.id)) }));
 }
 
 const OUTCOME_ORDER = { inapplicable: 0, pass: 1, review: 2, fail: 3 };

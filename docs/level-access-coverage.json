@@ -1,0 +1,912 @@
+[
+ {
+  "status": "failed",
+  "name": "SVG element missing accessible name",
+  "verdict": "Caught",
+  "by": [
+   "svg-accessible-name (custom)"
+  ]
+ },
+ {
+  "status": "failed",
+  "name": "Aria-expanded used where it is not allowed",
+  "verdict": "Caught",
+  "by": [
+   "aria-expanded-not-allowed (custom)"
+  ]
+ },
+ {
+  "status": "failed",
+  "name": "Iframe width set to absolute units",
+  "verdict": "Caught",
+  "by": [
+   "iframe-width-absolute (custom)"
+  ]
+ },
+ {
+  "status": "failed",
+  "name": "Iframe height attribute uses absolute units",
+  "verdict": "Caught",
+  "by": [
+   "iframe-height-absolute (custom)"
+  ]
+ },
+ {
+  "status": "failed",
+  "name": "Focusable elements cannot be missing an implicit or explicit role",
+  "verdict": "Caught",
+  "by": [
+   "focusable-no-role (custom)"
+  ]
+ },
+ {
+  "status": "failed",
+  "name": "Link has non-unique accessible name.",
+  "verdict": "Caught",
+  "by": [
+   "link-name-not-unique (custom)"
+  ]
+ },
+ {
+  "status": "failed",
+  "name": "Non-large text without sufficient contrast.",
+  "verdict": "Caught",
+  "by": [
+   "color-contrast"
+  ]
+ },
+ {
+  "status": "failed",
+  "name": "A element contains visible text that is not found in the accessible name",
+  "verdict": "Caught",
+  "by": [
+   "link-label-in-name (custom)"
+  ]
+ },
+ {
+  "status": "flagged",
+  "name": "Ul element is empty",
+  "verdict": "Flagged for review only",
+  "by": [
+   "list-empty (custom)"
+  ]
+ },
+ {
+  "status": "flagged",
+  "name": "Label element empty",
+  "verdict": "Flagged for review only",
+  "by": [
+   "label-empty (custom)"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Server-side image map is used",
+  "verdict": "Flagged for review only",
+  "by": [
+   "server-side-image-map"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Element with role img or graphic missing accessible name",
+  "verdict": "Caught",
+  "by": [
+   "role-img-alt"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Input type text missing accessible name",
+  "verdict": "Caught",
+  "by": [
+   "label"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Button element missing accessible name.",
+  "verdict": "Caught",
+  "by": [
+   "button-name"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Link missing accessible name.",
+  "verdict": "Caught",
+  "by": [
+   "link-name"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Input element type radio missing accessible name",
+  "verdict": "Caught",
+  "by": [
+   "label"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Body element has an aria-hidden attribute set to true",
+  "verdict": "Caught",
+  "by": [
+   "aria-hidden-body"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Element with role button missing accessible name",
+  "verdict": "Caught",
+  "by": [
+   "aria-command-name"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "A element with href has presentation role",
+  "verdict": "Only with best practices on",
+  "by": [
+   "aria-allowed-role",
+   "presentation-role-conflict"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Button element contains an element that is not allowed",
+  "verdict": "Caught",
+  "by": [
+   "nested-interactive"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Element with role button contains an element that is not allowed",
+  "verdict": "Caught",
+  "by": [
+   "nested-interactive"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Img element cannot have an accessible name and be marked as decorative",
+  "verdict": "Only with best practices on",
+  "by": [
+   "aria-allowed-role"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Img element contained within elements whose children can only be presentational, is missing an accessible name.",
+  "verdict": "Caught",
+  "by": [
+   "button-name",
+   "image-alt"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Aria-sort used where it is not allowed",
+  "verdict": "Caught",
+  "by": [
+   "aria-allowed-attr"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "An alt attribute is not allowed on this element",
+  "verdict": "Caught",
+  "by": [
+   "alt-not-allowed (custom)"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Aria-pressed used where it is not allowed",
+  "verdict": "Caught",
+  "by": [
+   "aria-allowed-attr"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Head element cannot contain role or other ARIA attributes",
+  "verdict": "Flagged for review only",
+  "by": [
+   "aria-allowed-role"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Fieldset missing accessible name",
+  "verdict": "Caught",
+  "by": [
+   "fieldset-name (custom)"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "HTML element missing lang attribute",
+  "verdict": "Caught",
+  "by": [
+   "html-has-lang"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Element has click listener but no keyboard listener",
+  "verdict": "Caught",
+  "by": [
+   "click-without-keyboard (custom)",
+   "handler-without-tabindex (custom)"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Link directly references an image",
+  "verdict": "Flagged for review only",
+  "by": [
+   "link-to-image (custom)"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Title element is empty",
+  "verdict": "Caught",
+  "by": [
+   "document-title"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Element with click or keyboard event listener missing a tabindex",
+  "verdict": "Caught",
+  "by": [
+   "handler-without-tabindex (custom)"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Role used on label where it is not allowed",
+  "verdict": "Only with best practices on",
+  "by": [
+   "aria-allowed-role"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Aria-disabled used where it is not needed and could conflict",
+  "verdict": "Caught",
+  "by": [
+   "aria-disabled-redundant (custom)"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Iframe element missing accessible name.",
+  "verdict": "Caught",
+  "by": [
+   "frame-title"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Element with role img or graphics has suspicious accessible name",
+  "verdict": "Caught",
+  "by": [
+   "role-img-name-suspicious (custom)"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Link has suspicious accessible name.",
+  "verdict": "Caught",
+  "by": [
+   "link-name-suspicious (custom)"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Aria-checked used where it is not allowed",
+  "verdict": "Caught",
+  "by": [
+   "aria-allowed-attr"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Aria-level used where it is not allowed",
+  "verdict": "Caught",
+  "by": [
+   "aria-allowed-attr"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Aria-readonly used where it is not allowed",
+  "verdict": "Caught",
+  "by": [
+   "aria-allowed-attr"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Aria-selected used where it is not allowed",
+  "verdict": "Caught",
+  "by": [
+   "aria-allowed-attr"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Aria-valuemin used where it is not allowed",
+  "verdict": "Caught",
+  "by": [
+   "aria-allowed-attr"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Aria-required used where it is not allowed",
+  "verdict": "Caught",
+  "by": [
+   "aria-allowed-attr"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Aria-modal used where it is not allowed",
+  "verdict": "Caught",
+  "by": [
+   "aria-allowed-attr"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Aria-autocomplete used where it is not allowed",
+  "verdict": "Caught",
+  "by": [
+   "aria-allowed-attr"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Aria-activedescendant attribute not allowed on this element",
+  "verdict": "Caught",
+  "by": [
+   "aria-allowed-attr"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Role use on link is not allowed",
+  "verdict": "Caught",
+  "by": [
+   "aria-required-parent"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Aria-owns not allowed on img element",
+  "verdict": "Caught",
+  "by": [
+   "aria-owns-not-allowed (custom)"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Aria-owns not allowed on input element",
+  "verdict": "Caught",
+  "by": [
+   "aria-owns-not-allowed (custom)"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Element with role 'button' does not have tabindex",
+  "verdict": "Caught",
+  "by": [
+   "button-name-suspicious (custom)",
+   "role-button-no-tabindex (custom)"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Abstract ARIA roles are not allowed on any element",
+  "verdict": "Caught",
+  "by": [
+   "aria-roles"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "No headings exist",
+  "verdict": "Only with best practices on",
+  "by": [
+   "page-has-heading-one"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Element has invalid role",
+  "verdict": "Caught",
+  "by": [
+   "aria-roles"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Use of role application is suspicious",
+  "verdict": "Flagged for review only",
+  "by": [
+   "role-application (custom)"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Multiple label elements with the same for attribute",
+  "verdict": "Flagged for review only",
+  "by": [
+   "form-field-multiple-labels"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Iframe has suspicious accessible name",
+  "verdict": "Caught",
+  "by": [
+   "iframe-name-suspicious (custom)"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Document title has suspicious name",
+  "verdict": "Caught",
+  "by": [
+   "title-suspicious (custom)"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Aria-hidden true used on interactive button",
+  "verdict": "Caught",
+  "by": [
+   "aria-hidden-focus"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Link without negative tabindex has aria-hidden true",
+  "verdict": "Caught",
+  "by": [
+   "aria-hidden-focus"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Aria-hidden true used on input",
+  "verdict": "Caught",
+  "by": [
+   "aria-hidden-focus"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "HTML element has invalid lang attribute",
+  "verdict": "Caught",
+  "by": [
+   "html-lang-valid"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Fieldset with suspicious accessible name",
+  "verdict": "Caught",
+  "by": [
+   "fieldset-name-suspicious (custom)"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Input type text with suspicious accessible name",
+  "verdict": "Caught",
+  "by": [
+   "input-text-name-suspicious (custom)"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Input type radio with suspicious accessible name",
+  "verdict": "Caught",
+  "by": [
+   "input-radio-name-suspicious (custom)"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Button element has suspicious accessible name",
+  "verdict": "Caught",
+  "by": [
+   "button-name-suspicious (custom)"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Iframe has a src attribute set to an image file",
+  "verdict": "Caught",
+  "by": [
+   "iframe-src-image (custom)"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Element with role dialog missing accessible name",
+  "verdict": "Only with best practices on",
+  "by": [
+   "aria-dialog-name"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Element with role dialog has suspicious accessible name",
+  "verdict": "Caught",
+  "by": [
+   "dialog-name-suspicious (custom)"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Focusable element with aria-hidden true",
+  "verdict": "Caught",
+  "by": [
+   "aria-hidden-focus"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Aria-checked used on input type radio where it is not needed and could conflict",
+  "verdict": "Caught",
+  "by": [
+   "aria-conditional-attr"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Input element relies on the placeholder attribute as a fallback to provide an accessible name",
+  "verdict": "Caught",
+  "by": [
+   "input-placeholder-name (custom)"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Document missing title element",
+  "verdict": "Caught",
+  "by": [
+   "document-title"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Element with invalid ARIA attribute.",
+  "verdict": "Caught",
+  "by": [
+   "button-name-suspicious (custom)",
+   "aria-valid-attr"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Div element has an aria-label attribute",
+  "verdict": "Flagged for review only",
+  "by": [
+   "aria-prohibited-attr"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "A elements without an href or tabindex >=0 are not in the focus order",
+  "verdict": "Caught",
+  "by": [
+   "click-without-keyboard (custom)",
+   "link-no-href (custom)"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "The aria-rowindextext attribute is not allowed on this element",
+  "verdict": "Caught",
+  "by": [
+   "aria-valid-attr"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "The aria-colindextext attribute is not allowed on this element",
+  "verdict": "Caught",
+  "by": [
+   "aria-valid-attr"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Large text without sufficient contrast",
+  "verdict": "Caught",
+  "by": [
+   "color-contrast"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Aria-multiline attribute not allowed on this element",
+  "verdict": "Caught",
+  "by": [
+   "aria-allowed-attr"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Li element without a parent list",
+  "verdict": "Caught",
+  "by": [
+   "listitem"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Meta element cannot have a role or other ARIA attributes",
+  "verdict": "Flagged for review only",
+  "by": [
+   "aria-allowed-role"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Role used on style where it is not allowed",
+  "verdict": "Flagged for review only",
+  "by": [
+   "aria-allowed-role"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Document title elements cannot have a role",
+  "verdict": "Flagged for review only",
+  "by": [
+   "aria-allowed-role"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Ordered list contains non-allowed elements",
+  "verdict": "Caught",
+  "by": [
+   "list"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Unordered list contains non-allowed elements",
+  "verdict": "Caught",
+  "by": [
+   "list"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Aria-multiselectable attribute is not allowed on this element",
+  "verdict": "Caught",
+  "by": [
+   "aria-allowed-attr"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Aria-orientation attribute is not allowed on this element",
+  "verdict": "Caught",
+  "by": [
+   "aria-allowed-attr"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Aria-valuemax used where it is not allowed",
+  "verdict": "Caught",
+  "by": [
+   "aria-allowed-attr"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Aria-valuenow used where it is not allowed",
+  "verdict": "Caught",
+  "by": [
+   "aria-allowed-attr"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Aria-valuetext attribute is not allowed on this element",
+  "verdict": "Caught",
+  "by": [
+   "aria-allowed-attr"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Aria-rowcount attribute is not allowed on this element",
+  "verdict": "Caught",
+  "by": [
+   "aria-allowed-attr"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Aria-rowindex attribute is not allowed on this element",
+  "verdict": "Caught",
+  "by": [
+   "aria-allowed-attr"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Aria-rowspan attribute is not allowed on this element",
+  "verdict": "Caught",
+  "by": [
+   "aria-allowed-attr"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Aria-colcount attribute is not allowed on this element",
+  "verdict": "Caught",
+  "by": [
+   "aria-allowed-attr"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Aria-colindex attribute is not allowed on this element",
+  "verdict": "Caught",
+  "by": [
+   "aria-allowed-attr"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Aria-colspan attribute is not allowed on this element",
+  "verdict": "Caught",
+  "by": [
+   "aria-allowed-attr"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Aria-placeholder attribute is not allowed on this element",
+  "verdict": "Caught",
+  "by": [
+   "aria-allowed-attr"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Heading structure skips heading level",
+  "verdict": "Caught",
+  "by": [
+   "heading-level-skipped (custom)"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Nav element missing unique accessible name",
+  "verdict": "Only with best practices on",
+  "by": [
+   "landmark-unique"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Nav element missing accessible name",
+  "verdict": "Caught",
+  "by": [
+   "nav-name (custom)"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "HTML element with extended language or region in lang attribute",
+  "verdict": "Flagged for review only",
+  "by": [
+   "lang-region (custom)"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "An alt attribute is not allowed on this element (on a link)",
+  "verdict": "Caught",
+  "by": [
+   "alt-not-allowed (custom)"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Element with role dialog is empty",
+  "verdict": "Caught",
+  "by": [
+   "dialog-empty (custom)"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Span element has aria-label that will not be used",
+  "verdict": "Flagged for review only",
+  "by": [
+   "aria-prohibited-attr"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Span element has aria-labelledby attribute that will not be used",
+  "verdict": "Flagged for review only",
+  "by": [
+   "aria-prohibited-attr"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Div element has aria-labelledby attribute that will not be used",
+  "verdict": "Flagged for review only",
+  "by": [
+   "aria-prohibited-attr"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Meta content attribute user-scalable is set to no",
+  "verdict": "Caught",
+  "by": [
+   "meta-viewport"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Meta content attribute maximum-scale value is less than 2",
+  "verdict": "Caught",
+  "by": [
+   "meta-viewport"
+  ]
+ },
+ {
+  "status": "passed",
+  "name": "Element has an autocomplete attribute set to a text value which contains one or more invalid tokens",
+  "verdict": "Caught",
+  "by": [
+   "autocomplete-valid"
+  ]
+ },
+ {
+  "status": "other scans",
+  "name": "Img element missing accessible name",
+  "verdict": "Caught",
+  "by": [
+   "image-alt"
+  ]
+ },
+ {
+  "status": "other scans",
+  "name": "Img element has suspicious alternative text.",
+  "verdict": "Caught",
+  "by": [
+   "image-alt-suspicious (custom)"
+  ]
+ },
+ {
+  "status": "other scans",
+  "name": "Layout table not marked as role presentation",
+  "verdict": "Caught",
+  "by": [
+   "table-no-headers (custom)"
+  ]
+ }
+]

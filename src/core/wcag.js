@@ -96,6 +96,14 @@ export function levelOfRule(tags) {
   return 'Best practice';
 }
 
+/**
+ * Whether a rule counts towards the score. Best practices do not, and that
+ * includes a rule marked best-practice that also names a criterion, such as
+ * heading order: Level Access files it under 1.3.1 and reports it, but its
+ * score does not move with it.
+ */
+export const isScored = (tags) => levelOfRule(tags) !== 'Best practice' && !(tags || []).includes('best-practice');
+
 function slug(name) {
   return name
     .toLowerCase()

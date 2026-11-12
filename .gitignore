@@ -4,7 +4,7 @@ data/
 # Notes and a saved third-party bundle from studying another product.
 # Kept on disk for reference; not ours to publish.
 level-access-bundle/
-level-access-*.md
-level-access-*.json
+/level-access-*.md
+/level-access-*.json
 dist/
 dist-test-*/

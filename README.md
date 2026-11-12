@@ -2,7 +2,7 @@
 
 A local web app that scans web pages for accessibility problems and tracks the
 findings over time. It loads each page in headless Chrome, evaluates it with
-[axe-core](https://github.com/dequelabs/axe-core) plus 38 custom rules, and
+[axe-core](https://github.com/dequelabs/axe-core) plus 39 custom rules, and
 stores the results in a SQLite file.
 
 ## Run it
@@ -128,6 +128,7 @@ They pass on the HPC pages today, so they change no current score there.
 | `alt-not-allowed` | Failed, minor | 1.3.1 | An `alt` attribute on something that is not an image |
 | `aria-disabled-redundant` | Failed, minor | 4.1.2 | `aria-disabled` together with `disabled` |
 | `nav-name` | Failed, minor | 1.3.1 | An unnamed `nav` on a page with more than one |
+| `heading-level-skipped` | Failed, minor, not scored | 1.3.1 | A heading more than one level below the one before it, or an `h1` that is not the first on the page. Replaces axe-core's `heading-order`, which misses the extra `h1`s |
 | `role-application` | Needs review | 4.1.2 | Any use of `role="application"` |
 | `link-to-image` | Needs review | 1.1.1 | A link that opens an image file |
 | `lang-region` | Needs review | 3.1.1 | A page language with a region or private-use part |
@@ -146,7 +147,7 @@ exposed at desktop width and all 28 at mobile width.
 
 `docs/level-access-coverage.md` lists every rule Access Engine reported on a
 scan of this site (113 of them) and what this checker reports for an example
-of each: 91 are caught, 7 only with best practices on, 15 are flagged for
+of each: 92 are caught, 6 only with best practices on, 15 are flagged for
 review only, and none is missed. Regenerate it with
 `node scripts/level-access-coverage.mjs`. The examples are written from the
 rule names, so this shows that each kind of problem is detected, not that the
@@ -194,7 +195,9 @@ Two things to know about that match:
 - What counts is whether a rule fails on the page, not how many elements fail
   it: 28 elements failing one rule cost the same as one.
 - Rules that need review, did not apply, or are only best practices cost
-  nothing.
+  nothing. Heading order is treated as a best practice here: Level Access
+  reports it under 1.3.1, but a page that fails it scores the same as one
+  that does not.
 
 A scan's score is the mean of its page scores. Bands: 80 and up is Good, 50
 to 79 is Fair, below 50 is Poor.

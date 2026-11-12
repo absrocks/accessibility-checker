@@ -218,6 +218,11 @@ define('nav-name', 'error', 1, ['wcag2a', 'wcag131'], 'info-and-relationships',
   'When a page has several navigation regions, each needs a name',
   'This nav has no aria-label or aria-labelledby, and the page has more than one. People moving between landmarks cannot tell them apart.');
 
+// Reported like any other failure, but marked best-practice so it does not move the score.
+define('heading-level-skipped', 'error', 1, ['best-practice', 'wcag2a', 'wcag131'], 'info-and-relationships',
+  'Headings must not skip levels, and a page should have one h1',
+  'The heading is more than one level below the heading before it, or it is an h1 that is not the first on the page. People who move through a page by its headings rely on the levels to understand how sections relate. Use the next level down for a subsection, and keep h1 for the page title.');
+
 // Controls that only work with a mouse. Only handlers written as attributes
 // (onclick="...") can be seen; listeners added from script cannot.
 define('click-without-keyboard', 'error', 3, ['wcag2a', 'wcag211'], 'keyboard',
@@ -516,6 +521,25 @@ export function runCustomRulesInPage({ maxHtml }) {
           flag('nav-name', el, `This is one of ${navs.length} navigation regions on the page and it has no name`);
         }
       }
+    }
+
+    // Heading structure skips a level. Level Access reports two things under
+    // this rule: a heading more than one level below the one before it, and
+    // every h1 after the first.
+    let previousLevel = 0;
+    let seenH1 = false;
+    for (const el of document.querySelectorAll('h1, h2, h3, h4, h5, h6, [role="heading"]')) {
+      if (axe.commons.aria.getRole(el) !== 'heading' || !exposed(el)) continue;
+      const stated = parseInt(el.getAttribute('aria-level'), 10);
+      const level = stated >= 1 ? stated : /^H[1-6]$/.test(el.tagName) ? Number(el.tagName[1]) : 2;
+      count('heading-level-skipped');
+      if (level === 1) {
+        if (seenH1) flag('heading-level-skipped', el, 'This H1 is not the first H1 on the page, so it breaks the heading hierarchy');
+        seenH1 = true;
+      } else if (previousLevel && level > previousLevel + 1) {
+        flag('heading-level-skipped', el, `This H${level} follows an H${previousLevel}, skipping ${level - previousLevel === 2 ? `H${previousLevel + 1}` : `H${previousLevel + 1} to H${level - 1}`}`);
+      }
+      previousLevel = level;
     }
 
     // ---- controls that only work with a mouse ----

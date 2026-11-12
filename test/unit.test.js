@@ -7,7 +7,7 @@ import { mergeViewportResults } from '../src/core/engine.js';
 import { pageScore, scanScore } from '../src/core/score.js';
 import { SearchError, compileSearch } from '../src/core/search.js';
 import { fingerprint, isCrawlable, normalizeUrl, parseTarget } from '../src/core/urls.js';
-import { criteriaFromTags, levelOfRule } from '../src/core/wcag.js';
+import { criteriaFromTags, isScored, levelOfRule } from '../src/core/wcag.js';
 
 test('criteriaFromTags reads one- and two-digit criterion numbers', () => {
   const got = criteriaFromTags(['cat.aria', 'wcag2a', 'wcag412', 'wcag1410']);
@@ -15,6 +15,13 @@ test('criteriaFromTags reads one- and two-digit criterion numbers', () => {
     ['4.1.2', 'Name, Role, Value', 'A'],
     ['1.4.10', 'Reflow', 'AA'],
   ]);
+});
+
+test('best practices do not count towards the score, even when they name a criterion', () => {
+  assert.equal(isScored(['wcag2a', 'wcag111']), true);
+  assert.equal(isScored(['best-practice', 'cat.semantics']), false);
+  assert.equal(isScored(['custom', 'best-practice', 'wcag2a', 'wcag131']), false);
+  assert.equal(isScored(undefined), false);
 });
 
 test('levelOfRule falls back to best practice', () => {

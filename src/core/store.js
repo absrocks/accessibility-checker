@@ -2,7 +2,7 @@
 // node:sqlite DatabaseSync shape (exec, prepare().run/get/all), so the same
 // code runs on the server and, through sqljs-adapter.js, in the browser.
 import { pageScore, scanScore } from './score.js';
-import { levelOfRule } from './wcag.js';
+import { isScored } from './wcag.js';
 
 // Bumped when the score formula changes; stored scores are then recomputed.
 const SCORE_VERSION = 4;
@@ -159,7 +159,7 @@ export function createStore(db) {
       byPage.get(row.page_id).push({
         outcome: row.outcome,
         impactRank: row.impact_rank,
-        scored: levelOfRule(JSON.parse(row.tags || '[]')) !== 'Best practice',
+        scored: isScored(JSON.parse(row.tags || '[]')),
       });
     }
     const setPage = q('UPDATE pages SET score = ? WHERE id = ?');
