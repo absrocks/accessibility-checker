@@ -27,6 +27,25 @@ npm test
 The end-to-end test starts a real browser and scans the pages in
 `test/fixtures/`.
 
+## Publish a read-only snapshot
+
+The checker needs a server and a browser, so it cannot run on a static host.
+What can be published is a snapshot: the same interface, reading the current
+scan results from a `data.json` file. Scanning, dismissing and restoring are
+not available there.
+
+```bash
+npm run deploy
+```
+
+This exports the database as it is now and replaces the `gh-pages` branch of
+the `origin` remote, which GitHub Pages serves. Run it again after new scans
+to update the published copy. `npm run export -- <directory>` writes the same
+files without publishing them.
+
+The published page is public even when the repository is private, and it
+contains the addresses, markup snippets and page titles of everything scanned.
+
 ## What it does
 
 - **Scans:** check one page, or crawl up to 50 same-site pages from a starting
@@ -100,6 +119,9 @@ comparable with other tools.
     src/db.js        SQLite schema and queries
     src/score.js     scoring
     src/search.js    advanced search
+    src/views.js     response shapes shared by the API and the snapshot
+    src/export.js    static snapshot
+    scripts/deploy.sh  publish the snapshot to GitHub Pages
     src/wcag.js      WCAG criteria table and axe tag mapping
     public/          the web interface (no build step)
     test/            unit and end-to-end tests

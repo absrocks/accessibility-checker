@@ -12,6 +12,11 @@ const SVG_NS = 'http://www.w3.org/2000/svg';
 let config = { standards: [], viewports: [], maxPages: 50, engine: '' };
 let stopView = null; // cancels the current view's polling
 
+// A published snapshot has no server behind it: index.html is marked, the
+// data comes from data.json, and everything that would change data is hidden.
+const STATIC = document.querySelector('meta[name="checker-mode"]')?.content === 'static';
+let snapshotAt = null;
+
 // ---------------------------------------------------------------- helpers
 
 function build(el, attrs, kids) {
@@ -31,7 +36,7 @@ function build(el, attrs, kids) {
 const h = (tag, attrs, ...kids) => build(document.createElement(tag), attrs, kids);
 const s = (tag, attrs, ...kids) => build(document.createElementNS(SVG_NS, tag), attrs, kids);
 
-async function api(path, { method = 'GET', body } = {}) {
+async function liveApi(path, { method = 'GET', body } = {}) {
   const res = await fetch(path, {
     method,
     headers: body ? { 'Content-Type': 'application/json' } : undefined,
@@ -42,6 +47,8 @@ async function api(path, { method = 'GET', body } = {}) {
   if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
   return data;
 }
+
+let api = liveApi;
 
 function announce(message) {
   statusRegion.textContent = '';
@@ -132,7 +139,9 @@ async function viewOverview(_m, query) {
   const data = await api(`/api/overview${site ? `?site=${encodeURIComponent(site)}` : ''}`);
   const head = [
     h('h1', {}, 'Overview'),
-    h('p', { class: 'lede' }, 'Accessibility health across your finished scans.'),
+    h('p', { class: 'lede' }, STATIC
+      ? `Read-only snapshot of scan results, taken ${fmtDate(snapshotAt)}.`
+      : 'Accessibility health across your finished scans.'),
   ];
   if (data.sites.length > 1) {
     head.push(h('div', { class: 'toolbar' }, h('div', {},
@@ -143,7 +152,8 @@ async function viewOverview(_m, query) {
   }
   if (!data.latest) {
     return page('Overview', head, h('div', { class: 'card empty' },
-      h('p', {}, 'No finished scans yet.'), h('a', { class: 'button', href: '#/scans' }, 'Run your first scan')));
+      h('p', {}, STATIC ? 'This snapshot has no finished scans.' : 'No finished scans yet.'),
+      STATIC ? null : h('a', { class: 'button', href: '#/scans' }, 'Run your first scan')));
   }
 
   const { latest, previous, trend } = data;
@@ -198,7 +208,7 @@ function trendChart(trend) {
 
 function scansTable(scans, { compact = false, onChange } = {}) {
   return table({ text: 'Scans', hidden: true },
-    ['Started', 'Address', compact ? null : 'Standard', { label: 'Pages', num: true }, 'Status', 'Score', { label: 'Failed findings', num: true }, 'Actions'].filter(Boolean),
+    ['Started', 'Address', compact ? null : 'Standard', { label: 'Pages', num: true }, 'Status', 'Score', { label: 'Failed findings', num: true }, STATIC ? null : 'Actions'].filter(Boolean),
     scans.map((sc) => h('tr', {},
       h('td', {}, fmtDate(sc.created_at)),
       h('td', { class: 'wrap' }, h('a', { href: `#/scans/${sc.id}` }, sc.url)),
@@ -207,7 +217,7 @@ function scansTable(scans, { compact = false, onChange } = {}) {
       h('td', {}, statusBadge(sc.status)),
       h('td', {}, scoreText(sc.score)),
       h('td', { class: 'num' }, sc.status === 'done' ? sc.fail_count : '—'),
-      h('td', {},
+      STATIC ? null : h('td', {},
         h('button', { class: 'link', 'aria-label': `Re-run scan of ${sc.url}`, onclick: () => rerun(sc.id).catch((e) => announce(e.message)) }, 'Re-run'),
         compact ? null : h('button', { class: 'link', 'aria-label': `Delete scan of ${sc.url} from ${fmtDate(sc.created_at)}`,
           onclick: async () => {
@@ -256,8 +266,10 @@ async function viewScans() {
     list.replaceChildren(h('h2', {}, `All scans (${scans.length})`), scansTable(scans, { onChange: refresh }));
     return scans.some((sc) => sc.status === 'queued' || sc.status === 'running');
   };
-  page('Scans', h('h1', {}, 'Scans'), h('p', { class: 'lede' }, 'Check one page, or crawl a site from a starting page.'), form, list);
-  if (await refresh()) poll(refresh);
+  page('Scans', h('h1', {}, 'Scans'),
+    h('p', { class: 'lede' }, STATIC ? 'Scans in this snapshot. New scans are run in the checker on your own computer.' : 'Check one page, or crawl a site from a starting page.'),
+    STATIC ? null : form, list);
+  if ((await refresh()) && !STATIC) poll(refresh);
 }
 
 // ------------------------------------------------------------ scan detail
@@ -268,7 +280,7 @@ async function viewScan([id], query) {
   const head = [
     crumbs([['Scans', '#/scans'], ['Scan results']]),
     h('div', { class: 'spread' }, h('h1', {}, 'Scan results'),
-      h('button', { onclick: () => rerun(scan.id).catch((e) => announce(e.message)) }, 'Re-run scan')),
+      STATIC ? null : h('button', { onclick: () => rerun(scan.id).catch((e) => announce(e.message)) }, 'Re-run scan')),
     h('p', { class: 'lede' }, scan.url),
     h('ul', { class: 'meta' },
       h('li', {}, statusBadge(scan.status)),
@@ -422,6 +434,17 @@ async function viewFindings([scanId], query) {
 
   const filterChanged = () => { state.offset = 0; state.selected.clear(); load(); };
 
+  // A snapshot has no server to build the CSV, so build it here from the same filters.
+  const downloadCsv = async () => {
+    const p = params();
+    p.set('limit', 1000000);
+    const [{ items }, { findingsCsv }] = await Promise.all([api(`/api/findings?${p}`), import('./static-api.js')]);
+    const link = h('a', { href: URL.createObjectURL(new Blob([findingsCsv(items)], { type: 'text/csv' })), download: 'findings.csv' });
+    link.click();
+    URL.revokeObjectURL(link.href);
+    announce(`Downloaded ${items.length} finding${items.length === 1 ? '' : 's'}`);
+  };
+
   function renderChips() {
     chips.replaceChildren(...state.clauses.map((c, i) => h('li', {},
       `${SEARCH_FIELDS.find((f) => f[0] === c.field)[1]} ${SEARCH_OPS.find((o) => o[0] === c.op)[1]} “${c.value}”`,
@@ -458,13 +481,15 @@ async function viewFindings([scanId], query) {
     const ids = state.items.map((f) => f.id);
     const allSelected = ids.length > 0 && ids.every((i) => state.selected.has(i));
     const chosen = [...state.selected];
-    const actions = h('div', { class: 'toolbar' },
-      h('button', { disabled: !chosen.length, onclick: () => setStatus(chosen, 'dismissed').catch((e) => announce(e.message)) }, `Dismiss selected (${chosen.length})`),
-      h('button', { disabled: !chosen.length, onclick: () => setStatus(chosen, 'open').catch((e) => announce(e.message)) }, `Restore selected (${chosen.length})`),
-      h('a', { class: 'button grow', href: `/api/findings.csv?${params()}`, download: 'findings.csv' }, 'Download CSV'));
+    const actions = STATIC
+      ? h('div', { class: 'toolbar' }, h('button', { class: 'grow', onclick: () => downloadCsv().catch((e) => announce(e.message)) }, 'Download CSV'))
+      : h('div', { class: 'toolbar' },
+        h('button', { disabled: !chosen.length, onclick: () => setStatus(chosen, 'dismissed').catch((e) => announce(e.message)) }, `Dismiss selected (${chosen.length})`),
+        h('button', { disabled: !chosen.length, onclick: () => setStatus(chosen, 'open').catch((e) => announce(e.message)) }, `Restore selected (${chosen.length})`),
+        h('a', { class: 'button grow', href: `api/findings.csv?${params()}`, download: 'findings.csv' }, 'Download CSV'));
 
     const rows = state.items.map((f, index) => h('tr', {},
-      h('td', {}, h('input', { type: 'checkbox', checked: state.selected.has(f.id), 'aria-label': `Select finding F-${f.id}`,
+      STATIC ? null : h('td', {}, h('input', { type: 'checkbox', checked: state.selected.has(f.id), 'aria-label': `Select finding F-${f.id}`,
         onchange: (e) => { if (e.target.checked) state.selected.add(f.id); else state.selected.delete(f.id); render(); } })),
       h('td', {}, `F-${f.id}`),
       ruleId ? null : h('td', {}, f.rule_help || f.rule_id, f.kind === 'review' ? h('span', { class: 'delta' }, ' (needs review)') : null),
@@ -478,7 +503,7 @@ async function viewFindings([scanId], query) {
     const end = Math.min(state.offset + state.limit, state.total);
     results.replaceChildren(actions,
       table({ text: `${state.total} finding${state.total === 1 ? '' : 's'}` },
-        [h('input', { type: 'checkbox', checked: allSelected, 'aria-label': 'Select all findings on this page',
+        [STATIC ? null : h('input', { type: 'checkbox', checked: allSelected, 'aria-label': 'Select all findings on this page',
           onchange: (e) => { for (const i of ids) { if (e.target.checked) state.selected.add(i); else state.selected.delete(i); } render(); } }),
         'ID', ruleId ? null : 'Problem', 'Page', 'Element', 'Severity', 'Status', 'Actions'].filter((x) => x != null),
         rows, 'No findings match these filters.'),
@@ -528,7 +553,7 @@ async function viewFindings([scanId], query) {
         h('div', { class: 'row' },
           h('button', { disabled: index === 0, onclick: () => openFinding(index - 1) }, 'Previous finding'),
           h('button', { disabled: index >= state.items.length - 1, onclick: () => openFinding(index + 1) }, 'Next finding')),
-        f.status === 'open'
+        STATIC ? null : f.status === 'open'
           ? h('div', { class: 'row' }, h('div', {}, h('label', { for: 'dismiss-reason' }, 'Reason (optional)'), reason),
             h('button', { class: 'primary', onclick: async () => { await setStatus([f.id], 'dismissed', reason.value); await openFinding(state.items.findIndex((x) => x.id === f.id)); } }, 'Dismiss finding'))
           : h('button', { class: 'primary', onclick: async () => { await setStatus([f.id], 'open'); await openFinding(state.items.findIndex((x) => x.id === f.id)); } }, 'Restore finding')));
@@ -573,6 +598,16 @@ async function route(moveFocus = true) {
 
 window.addEventListener('hashchange', () => route());
 
+if (STATIC) {
+  try {
+    const snapshot = await (await import('./static-api.js')).createStaticApi();
+    api = snapshot.api;
+    snapshotAt = snapshot.generatedAt;
+  } catch (e) {
+    page('Error', h('h1', {}, 'The snapshot could not be loaded'), h('p', { class: 'error', role: 'alert' }, e.message));
+    throw e;
+  }
+}
 config = await api('/api/config').catch(() => config);
-document.getElementById('engine').textContent = config.engine;
+document.getElementById('engine').textContent = STATIC ? `${config.engine} · read-only snapshot` : config.engine;
 route(false);

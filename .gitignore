@@ -6,3 +6,5 @@ data/
 level-access-bundle/
 level-access-*.md
 level-access-*.json
+dist/
+dist-test-*/

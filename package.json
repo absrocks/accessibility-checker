@@ -6,7 +6,9 @@
   "description": "Local accessibility checker: scans pages with axe-core, tracks findings over time.",
   "scripts": {
     "start": "node --disable-warning=ExperimentalWarning src/server.js",
-    "test": "node --disable-warning=ExperimentalWarning --test \"test/*.test.js\""
+    "test": "node --disable-warning=ExperimentalWarning --test \"test/*.test.js\"",
+    "export": "node --disable-warning=ExperimentalWarning src/export.js",
+    "deploy": "sh scripts/deploy.sh"
   },
   "engines": {
     "node": ">=22.13"
