@@ -2,7 +2,7 @@
 
 A local web app that scans web pages for accessibility problems and tracks the
 findings over time. It loads each page in headless Chrome, evaluates it with
-[axe-core](https://github.com/dequelabs/axe-core) plus twelve custom rules, and
+[axe-core](https://github.com/dequelabs/axe-core) plus fourteen custom rules, and
 stores the results in a SQLite file.
 
 ## Run it
@@ -95,6 +95,8 @@ from the Docs site's CI script (`.github/scripts/a11y-check.cjs`).
 | `contrast-translucent-background` | Failed, serious | 1.4.3 | Small text that only reaches 4.5:1 because of a semi-transparent background; measured against the nearest solid background |
 | `link-label-in-name` | Failed, minor | 2.5.3 | A link with an `aria-label` that does not contain its visible text exactly |
 | `table-no-headers` | Failed, minor | 1.3.1 | A table with no `th` and no caption that is not marked `role="presentation"` |
+| `iframe-width-absolute` | Failed, minor | 1.4.4 | An iframe with a `width` attribute in pixels |
+| `iframe-height-absolute` | Failed, minor | 1.4.4 | An iframe with a `height` attribute in pixels |
 | `link-name-generic` | Needs review | 2.4.4 | A link named "click here", "read more" and similar |
 | `link-name-short` | Needs review | 2.4.4 | A link name of three characters or fewer that is not a number |
 | `list-empty` | Needs review | 1.3.1 | A `ul` or `ol` with no `li` children |
@@ -106,6 +108,13 @@ matters: on one documentation page, 1 of 28 `nav[aria-expanded]` elements is
 exposed at desktop width and all 28 at mobile width.
 
 ### Compared with Level Access
+
+`docs/level-access-coverage.md` lists every rule Access Engine reported on a
+scan of this site (113 of them) and what this checker reports for an example
+of each: 68 are caught, 7 only with best practices on, 12 are flagged for
+review only, and 26 are not caught. Regenerate it with
+`node scripts/level-access-coverage.mjs`. The rules that have actually failed
+on the HPC pages are all covered; the gaps are among rules those pages pass.
 
 On `https://hpc.njit.edu/MIG/` (11 Nov 2026) Access Engine and this checker
 report the same findings and the same score:
@@ -121,6 +130,10 @@ report the same findings and the same score:
 | Label element empty (flagged) | 1 | 1 |
 | **Failed findings** | **47** | **47** |
 | **Score** | **80** | **80** |
+
+`https://hpc.njit.edu/Courses/` (12 Nov 2026) also matches: 55 failed findings
+and a score of 78 in both, including one each for the iframe width and height
+rules.
 
 Two things to know about that match:
 

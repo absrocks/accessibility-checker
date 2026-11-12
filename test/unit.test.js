@@ -192,6 +192,8 @@ test('custom rule results become pass, fail, review or inapplicable', () => {
     'link-name-not-unique': 'inapplicable',
     'link-label-in-name': 'inapplicable',
     'table-no-headers': 'inapplicable',
+    'iframe-width-absolute': 'inapplicable',
+    'iframe-height-absolute': 'inapplicable',
     'list-empty': 'inapplicable',
     'label-empty': 'inapplicable',
     'contrast-translucent-background': 'inapplicable',

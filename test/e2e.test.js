@@ -81,7 +81,8 @@ test('crawls the fixture site and reports the known problems', { skip: !browserA
 
   // Rules ported from the Docs CI script, which axe-core does not have.
   for (const rule of ['aria-expanded-not-allowed', 'svg-accessible-name', 'link-name-suspicious', 'focusable-no-role',
-    'link-name-not-unique', 'link-label-in-name', 'table-no-headers', 'contrast-translucent-background']) {
+    'link-name-not-unique', 'link-label-in-name', 'table-no-headers', 'contrast-translucent-background',
+    'iframe-width-absolute', 'iframe-height-absolute']) {
     assert.ok(failed.includes(rule), `expected custom rule ${rule} to fail, got ${failed.join(', ')}`);
   }
   const outcome = (id) => body.rules.find((r) => r.rule_id === id);

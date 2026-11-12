@@ -84,7 +84,8 @@ test('scans listed pages in the browser and finds what the server scanner finds'
   // The same rules test/e2e.test.js expects from the Playwright scanner on these fixtures.
   for (const rule of ['image-alt', 'label', 'button-name', 'color-contrast', 'html-has-lang', 'aria-allowed-attr',
     'aria-expanded-not-allowed', 'svg-accessible-name', 'link-name-suspicious', 'focusable-no-role',
-    'link-name-not-unique', 'link-label-in-name', 'table-no-headers', 'contrast-translucent-background']) {
+    'link-name-not-unique', 'link-label-in-name', 'table-no-headers', 'contrast-translucent-background',
+    'iframe-width-absolute', 'iframe-height-absolute']) {
     assert.ok(failed.includes(rule), `expected ${rule} to fail, got ${failed.join(', ')}`);
   }
   const outcome = (id) => detail.rules.find((r) => r.rule_id === id);

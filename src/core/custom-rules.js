@@ -85,6 +85,28 @@ export const CUSTOM_RULES = [
     tags: ['custom', 'wcag2a', 'wcag131'],
   },
   {
+    id: 'iframe-width-absolute',
+    level: 'error',
+    impactRank: 1,
+    help: 'Iframe width should not be set in absolute units',
+    description:
+      'The iframe has a width attribute in pixels. A fixed width does not adapt when people zoom in or use a narrow ' +
+      'screen, so the framed content can be cut off. Size it with CSS instead, for example width: 100% with a max-width.',
+    helpUrl: 'https://www.w3.org/WAI/WCAG22/Understanding/resize-text',
+    tags: ['custom', 'wcag2aa', 'wcag144'],
+  },
+  {
+    id: 'iframe-height-absolute',
+    level: 'error',
+    impactRank: 1,
+    help: 'Iframe height should not be set in absolute units',
+    description:
+      'The iframe has a height attribute in pixels. A fixed height does not grow when text is enlarged, so the framed ' +
+      'content can be cut off. Size it with CSS instead, for example with aspect-ratio.',
+    helpUrl: 'https://www.w3.org/WAI/WCAG22/Understanding/resize-text',
+    tags: ['custom', 'wcag2aa', 'wcag144'],
+  },
+  {
     id: 'list-empty',
     level: 'warning',
     impactRank: 1,
@@ -240,6 +262,17 @@ export function runCustomRulesInPage({ maxHtml }) {
       count('table-no-headers');
       if (!table.querySelector('th, caption, [scope], [headers], [role="columnheader"], [role="rowheader"]')) {
         flag('table-no-headers', table, 'The table has no th cells and no caption');
+      }
+    }
+
+    // Iframes sized with pixel width or height attributes. Percentages adapt; plain numbers and px do not.
+    for (const frame of document.querySelectorAll('iframe')) {
+      if (!exposed(frame)) continue;
+      for (const side of ['width', 'height']) {
+        const rule = `iframe-${side}-absolute`;
+        count(rule);
+        const value = (frame.getAttribute(side) || '').trim();
+        if (/^\d+(\.\d+)?(px)?$/i.test(value)) flag(rule, frame, `The ${side} attribute is "${value}", a fixed number of pixels`);
       }
     }
 
