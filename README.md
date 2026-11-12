@@ -2,7 +2,7 @@
 
 A local web app that scans web pages for accessibility problems and tracks the
 findings over time. It loads each page in headless Chrome, evaluates it with
-[axe-core](https://github.com/dequelabs/axe-core) plus five custom rules, and
+[axe-core](https://github.com/dequelabs/axe-core) plus six custom rules, and
 stores the results in a SQLite file.
 
 ## Run it
@@ -48,10 +48,13 @@ contains the addresses, markup snippets and page titles of everything scanned.
 
 ## What it does
 
-- **Scans:** check one page, or crawl up to 50 same-site pages from a starting
-  address. Choose WCAG 2.0, 2.1 or 2.2 Level AA, optional best-practice rules,
-  and a viewport. The default loads every page at desktop and mobile widths
-  and merges the results. Scans run one at a time.
+- **Scans:** list the pages to check, one address per line. Every listed page
+  is scanned, and the checker can also follow links from the first page to
+  find more, up to 50 pages in all. Choose WCAG 2.0, 2.1 or 2.2 Level AA,
+  optional best-practice rules, and a viewport. The default loads every page
+  at desktop and mobile widths and merges the results. Scans run one at a
+  time. Removing a scan discards its results; findings seen only in that scan
+  go with it.
 - **Results:** a score per page and per scan, findings by severity and by
   conformance level, and rules grouped into failed, needs review and passed.
   View results by rule or by page.
@@ -66,13 +69,15 @@ contains the addresses, markup snippets and page titles of everything scanned.
 
 ## Custom rules
 
-axe-core does not have these. They are in `src/custom-rules.js`, ported from
-the Docs site's CI script (`.github/scripts/a11y-check.cjs`), where they
-imitate rules of Level Access's Access Engine. They always run.
+axe-core does not have these. They are in `src/custom-rules.js`. Five were
+ported from the Docs site's CI script (`.github/scripts/a11y-check.cjs`), and
+`focusable-no-role` was added here; all imitate rules of Level Access's Access
+Engine. They always run.
 
 | Rule | Recorded as | Criterion | What it flags |
 |---|---|---|---|
 | `aria-expanded-not-allowed` | Failed | 4.1.2 | `aria-expanded` on a role ARIA 1.2 does not allow it on, such as `nav` |
+| `focusable-no-role` | Failed | 4.1.2 | A `div`, `span` or similar put in the tab order with `tabindex` but given no role |
 | `svg-accessible-name` | Failed | 1.1.1 | An exposed inline SVG with no name, outside a control |
 | `link-name-suspicious` | Failed | 2.4.4 | A link named only by a symbol, or by more than 150 characters |
 | `link-name-generic` | Needs review | 2.4.4 | A link named "click here", "read more" and similar |
@@ -103,6 +108,8 @@ comparable with other tools.
   Level Access, for example, also reports elements that are hidden from
   screen readers, and has rules for non-unique link names and for visible
   text missing from an accessible name.
+- The published snapshot cannot scan. A page on GitHub Pages can only read
+  sites that allow it; `hpc.njit.edu` does not send that permission.
 - Content inside iframes is not evaluated.
 - Pages behind a login are not reachable; the scanner has no session.
 - The crawler follows links found in the page, not sitemaps, and does not read

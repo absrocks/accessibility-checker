@@ -67,10 +67,24 @@ export function createApp(store, queue) {
 
   app.post('/api/scans', (req, res) => {
     const body = req.body || {};
-    const target = parseTarget(body.url);
-    if (!target) return res.status(400).json({ error: 'Enter a full http or https address, for example https://example.com/' });
-    const maxPages = int(body.maxPages) ?? 1;
-    if (maxPages < 1 || maxPages > MAX_PAGES) return res.status(400).json({ error: `Pages to scan must be between 1 and ${MAX_PAGES}` });
+    // Pages to check: a list in `urls`, or a single `url`.
+    const given = Array.isArray(body.urls) ? body.urls : [body.url];
+    const targets = [];
+    for (const entry of given) {
+      const target = parseTarget(entry);
+      if (!target) {
+        const shown = String(entry ?? '').slice(0, 80);
+        return res.status(400).json({ error: `${shown ? `"${shown}" is not a full address. ` : ''}Enter full http or https addresses, for example https://example.com/` });
+      }
+      if (!targets.some((t) => t.href === target.href)) targets.push(target);
+    }
+    if (!targets.length) return res.status(400).json({ error: 'Enter at least one page address' });
+    // Total pages: the listed ones plus `extraPages` found by following links, or `maxPages` in all.
+    const extra = int(body.extraPages);
+    if (body.extraPages != null && extra === null) return res.status(400).json({ error: 'Extra pages must be a whole number' });
+    const maxPages = body.extraPages != null ? targets.length + extra : Math.max(int(body.maxPages) ?? targets.length, targets.length);
+    if (maxPages < 1 || maxPages > MAX_PAGES) return res.status(400).json({ error: `A scan can cover at most ${MAX_PAGES} pages; this one asks for ${maxPages}` });
+    const target = targets[0];
     const standard = body.standard ?? 'wcag22aa';
     if (!STANDARDS[standard]) return res.status(400).json({ error: 'Unknown standard' });
     const viewport = body.viewport ?? 'both';
@@ -79,6 +93,7 @@ export function createApp(store, queue) {
     const scan = store.createScan({
       url: target.href,
       origin: target.origin,
+      urls: targets.map((t) => t.href),
       standard,
       bestPractices: Boolean(body.bestPractices),
       viewport,
@@ -95,6 +110,7 @@ export function createApp(store, queue) {
     const scan = store.createScan({
       url: old.url,
       origin: old.origin,
+      urls: old.urls ? JSON.parse(old.urls) : [old.url],
       standard: old.standard,
       bestPractices: old.best_practices,
       viewport: old.viewport,

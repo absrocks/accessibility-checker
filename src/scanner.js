@@ -226,8 +226,8 @@ export async function scanPage(context, url, { tags }) {
 }
 
 /**
- * Scan `scan.url`, then follow same-origin links breadth-first until
- * `scan.max_pages` pages have been attempted. Calls `onPage` after each page
+ * Scan the pages listed in `scan.urls`, then follow same-origin links
+ * breadth-first until `scan.max_pages` pages have been attempted. Calls `onPage` after each page
  * with either a result or `{ url, error }`. Resolves when the crawl ends.
  */
 export async function crawlAndScan(scan, onPage) {
@@ -242,9 +242,10 @@ export async function crawlAndScan(scan, onPage) {
     for (const name of devices) {
       contexts.push(await browser.newContext({ ...DEVICES[name], bypassCSP: true, reducedMotion: 'reduce' }));
     }
-    const start = normalizeUrl(scan.url);
-    const origin = new URL(start).origin;
-    const queue = [start];
+    // Listed pages come first; links are followed only on the first page's site.
+    const listed = scan.urls ? JSON.parse(scan.urls) : [scan.url];
+    const queue = [...new Set(listed.map(normalizeUrl).filter(Boolean))];
+    const origin = new URL(queue[0]).origin;
     const seen = new Set(queue);
     let attempted = 0;
 

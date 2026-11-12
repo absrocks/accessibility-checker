@@ -174,6 +174,7 @@ test('custom rule results become pass, fail, review or inapplicable', () => {
   const outcome = Object.fromEntries(shaped.rules.map((r) => [r.id, r.outcome]));
   assert.deepEqual(outcome, {
     'aria-expanded-not-allowed': 'fail',
+    'focusable-no-role': 'inapplicable',
     'svg-accessible-name': 'inapplicable',
     'link-name-suspicious': 'pass',
     'link-name-generic': 'review',

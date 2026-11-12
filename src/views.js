@@ -20,6 +20,7 @@ export function describeScan(s) {
   return {
     ...s,
     best_practices: Boolean(s.best_practices),
+    pages_listed: s.urls ? JSON.parse(s.urls) : [s.url],
     standard_label: STANDARDS[s.standard]?.label || s.standard,
     viewport_label: VIEWPORTS[s.viewport]?.label || s.viewport,
   };

@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS scans (
   error TEXT,
   engine TEXT,
   score INTEGER,
+  urls TEXT,                       -- JSON list of the pages the scan was asked to check
   pages_scanned INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL,
   started_at TEXT,
@@ -98,6 +99,10 @@ export function openStore(file) {
   if (file !== ':memory:') mkdirSync(dirname(file), { recursive: true });
   const db = new DatabaseSync(file);
   db.exec(SCHEMA);
+  // Databases created before scans could list several pages lack this column.
+  if (!db.prepare('PRAGMA table_info(scans)').all().some((c) => c.name === 'urls')) {
+    db.exec('ALTER TABLE scans ADD COLUMN urls TEXT');
+  }
 
   const now = () => new Date().toISOString();
   const tx = (fn) => {
@@ -114,8 +119,8 @@ export function openStore(file) {
   const q = (sql) => db.prepare(sql);
 
   const stmt = {
-    insertScan: q(`INSERT INTO scans (url, origin, standard, best_practices, viewport, max_pages, status, engine, created_at)
-                   VALUES (?, ?, ?, ?, ?, ?, 'queued', ?, ?)`),
+    insertScan: q(`INSERT INTO scans (url, origin, urls, standard, best_practices, viewport, max_pages, status, engine, created_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, 'queued', ?, ?)`),
     getScan: q('SELECT * FROM scans WHERE id = ?'),
     insertPage: q('INSERT INTO pages (scan_id, url, title, score, error) VALUES (?, ?, ?, ?, ?)'),
     upsertRule: q(`INSERT INTO rules (rule_id, help, description, help_url, tags) VALUES (?, ?, ?, ?, ?)
@@ -136,8 +141,10 @@ export function openStore(file) {
 
     // ---- scans -----------------------------------------------------------
 
-    createScan({ url, origin, standard, bestPractices, viewport, maxPages, engine }) {
-      const r = stmt.insertScan.run(url, origin, standard, bestPractices ? 1 : 0, viewport, maxPages, engine, now());
+    /** `urls` are the pages to check, in order; `url` is the first of them. */
+    createScan({ url, origin, urls, standard, bestPractices, viewport, maxPages, engine }) {
+      const listed = JSON.stringify(urls?.length ? urls : [url]);
+      const r = stmt.insertScan.run(url, origin, listed, standard, bestPractices ? 1 : 0, viewport, maxPages, engine, now());
       return stmt.getScan.get(Number(r.lastInsertRowid));
     },
 

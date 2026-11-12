@@ -211,7 +211,8 @@ function scansTable(scans, { compact = false, onChange } = {}) {
     ['Started', 'Address', compact ? null : 'Standard', { label: 'Pages', num: true }, 'Status', 'Score', { label: 'Failed findings', num: true }, STATIC ? null : 'Actions'].filter(Boolean),
     scans.map((sc) => h('tr', {},
       h('td', {}, fmtDate(sc.created_at)),
-      h('td', { class: 'wrap' }, h('a', { href: `#/scans/${sc.id}` }, sc.url)),
+      h('td', { class: 'wrap' }, h('a', { href: `#/scans/${sc.id}` }, sc.url),
+        sc.pages_listed.length > 1 ? h('span', { class: 'delta' }, ` and ${sc.pages_listed.length - 1} more listed page${sc.pages_listed.length === 2 ? '' : 's'}`) : null),
       compact ? null : h('td', {}, sc.standard_label),
       h('td', { class: 'num' }, `${sc.pages_scanned} of ${sc.max_pages}`),
       h('td', {}, statusBadge(sc.status)),
@@ -219,11 +220,47 @@ function scansTable(scans, { compact = false, onChange } = {}) {
       h('td', { class: 'num' }, sc.status === 'done' ? sc.fail_count : '—'),
       STATIC ? null : h('td', {},
         h('button', { class: 'link', 'aria-label': `Re-run scan of ${sc.url}`, onclick: () => rerun(sc.id).catch((e) => announce(e.message)) }, 'Re-run'),
-        compact ? null : h('button', { class: 'link', 'aria-label': `Delete scan of ${sc.url} from ${fmtDate(sc.created_at)}`,
-          onclick: async () => {
-            try { await api(`/api/scans/${sc.id}`, { method: 'DELETE' }); announce('Scan deleted'); onChange?.(); } catch (e) { announce(e.message); }
-          } }, 'Delete')))),
+        compact ? null : removeButton(sc, onChange)))),
     'No scans yet.');
+}
+
+/**
+ * "Remove" for one scan. Removing cannot be undone, so the first press only
+ * arms the button; a second press within a few seconds does it.
+ */
+function removeButton(sc, onChange) {
+  const what = `scan of ${sc.url} from ${fmtDate(sc.created_at)}`;
+  let armed = false;
+  let timer;
+  const button = h('button', { class: 'link', 'aria-label': `Remove ${what}` }, 'Remove');
+  const disarm = () => {
+    armed = false;
+    button.textContent = 'Remove';
+    button.setAttribute('aria-label', `Remove ${what}`);
+    button.classList.remove('danger');
+  };
+  button.addEventListener('click', async () => {
+    if (!armed) {
+      armed = true;
+      button.textContent = 'Confirm remove';
+      button.setAttribute('aria-label', `Confirm: remove ${what} and its results`);
+      button.classList.add('danger');
+      announce('Press again to remove this scan and its results. This cannot be undone.');
+      timer = setTimeout(disarm, 6000);
+      return;
+    }
+    clearTimeout(timer);
+    try {
+      await api(`/api/scans/${sc.id}`, { method: 'DELETE' });
+      announce('Scan removed');
+      onChange?.();
+    } catch (e) {
+      disarm();
+      announce(e.message);
+    }
+  });
+  button.addEventListener('blur', () => { clearTimeout(timer); disarm(); });
+  return button;
 }
 
 async function viewScans() {
@@ -233,31 +270,32 @@ async function viewScans() {
       e.preventDefault();
       error.textContent = '';
       const f = new FormData(form);
+      const urls = String(f.get('urls') || '').split(/\s+/).filter(Boolean);
       try {
         const scan = await api('/api/scans', { method: 'POST', body: {
-          url: f.get('url'), maxPages: Number(f.get('maxPages')), standard: f.get('standard'),
+          urls, extraPages: Number(f.get('extraPages') || 0), standard: f.get('standard'),
           viewport: f.get('viewport'), bestPractices: f.get('bestPractices') === 'on',
         } });
         announce('Scan started');
         location.hash = `#/scans/${scan.id}`;
       } catch (err) {
         error.textContent = err.message;
-        form.querySelector('#url').focus();
+        form.querySelector('#urls').focus();
       }
     } },
     h('h2', {}, 'Run a scan'),
     h('div', { class: 'row' },
-      h('div', {}, h('label', { for: 'url' }, 'Page address'),
-        h('input', { id: 'url', name: 'url', type: 'url', required: true, placeholder: 'https://example.com/', autocomplete: 'url' })),
-      h('div', {}, h('label', { for: 'maxPages' }, `Pages to scan (1–${config.maxPages})`),
-        h('input', { id: 'maxPages', name: 'maxPages', type: 'number', min: 1, max: config.maxPages, value: 1, 'aria-describedby': 'pages-hint' })),
+      h('div', { class: 'wide' }, h('label', { for: 'urls' }, 'Pages to scan, one address per line'),
+        h('textarea', { id: 'urls', name: 'urls', rows: 4, required: true, spellcheck: 'false', placeholder: 'https://example.com/\nhttps://example.com/about/', 'aria-describedby': 'pages-hint' })),
+      h('div', {}, h('label', { for: 'extraPages' }, 'More pages found by following links'),
+        h('input', { id: 'extraPages', name: 'extraPages', type: 'number', min: 0, max: config.maxPages - 1, value: 0, 'aria-describedby': 'pages-hint' })),
       h('div', {}, h('label', { for: 'standard' }, 'Standard'),
         h('select', { id: 'standard', name: 'standard' }, config.standards.map((st) => h('option', { value: st.id, selected: st.id === 'wcag22aa' }, st.label)))),
       h('div', {}, h('label', { for: 'viewport' }, 'Viewport'),
         h('select', { id: 'viewport', name: 'viewport' }, config.viewports.map((v) => h('option', { value: v.id }, v.label)))),
       h('div', { class: 'check' }, h('input', { id: 'bestPractices', name: 'bestPractices', type: 'checkbox' }), h('label', { for: 'bestPractices' }, 'Include best practices')),
       h('button', { class: 'primary', type: 'submit' }, 'Run scan')),
-    h('p', { id: 'pages-hint', class: 'delta' }, 'With more than one page, the checker follows links on the same site, starting from this address.'),
+    h('p', { id: 'pages-hint', class: 'delta' }, `Every page you list is checked, and the scan's score is the average of their scores. To cover more of a site, the checker can also follow links from the first page, on the same site. A scan can cover up to ${config.maxPages} pages in all.`),
     error);
 
   const list = h('section', { class: 'card' });
@@ -267,7 +305,7 @@ async function viewScans() {
     return scans.some((sc) => sc.status === 'queued' || sc.status === 'running');
   };
   page('Scans', h('h1', {}, 'Scans'),
-    h('p', { class: 'lede' }, STATIC ? 'Scans in this snapshot. New scans are run in the checker on your own computer.' : 'Check one page, or crawl a site from a starting page.'),
+    h('p', { class: 'lede' }, STATIC ? 'Scans in this snapshot. New scans are run in the checker on your own computer.' : 'Add the pages you want checked. Each scan gets a score from the pages in it; remove a scan to discard its results.'),
     STATIC ? null : form, list);
   if ((await refresh()) && !STATIC) poll(refresh);
 }
@@ -281,7 +319,7 @@ async function viewScan([id], query) {
     crumbs([['Scans', '#/scans'], ['Scan results']]),
     h('div', { class: 'spread' }, h('h1', {}, 'Scan results'),
       STATIC ? null : h('button', { onclick: () => rerun(scan.id).catch((e) => announce(e.message)) }, 'Re-run scan')),
-    h('p', { class: 'lede' }, scan.url),
+    h('p', { class: 'lede' }, scan.url, scan.pages_listed.length > 1 ? ` and ${scan.pages_listed.length - 1} more listed page${scan.pages_listed.length === 2 ? '' : 's'}` : ''),
     h('ul', { class: 'meta' },
       h('li', {}, statusBadge(scan.status)),
       h('li', {}, fmtDate(scan.started_at || scan.created_at)),

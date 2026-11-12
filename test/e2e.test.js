@@ -57,6 +57,10 @@ test('rejects scan requests it should not run', async () => {
   assert.equal((await post('/api/scans', { url: 'file:///etc/passwd' })).status, 400);
   assert.equal((await post('/api/scans', { url: 'https://example.com', maxPages: 500 })).status, 400);
   assert.equal((await post('/api/scans', { url: 'https://example.com', standard: 'nope' })).status, 400);
+  assert.equal((await post('/api/scans', { urls: [] })).status, 400);
+  assert.equal((await post('/api/scans', { urls: ['https://example.com/', 'not a url'] })).status, 400);
+  assert.equal((await post('/api/scans', { urls: ['https://example.com/'], extraPages: 50 })).status, 400);
+  assert.equal((await post('/api/scans', { urls: ['https://example.com/'], extraPages: 'lots' })).status, 400);
   assert.equal((await call('/api/scans/999')).status, 404);
   assert.equal((await call('/api/findings?search=%5B%7B%22field%22%3A%22html%22%2C%22op%22%3A%22regex%22%2C%22value%22%3A%22(%22%7D%5D')).status, 400);
 });
@@ -76,12 +80,13 @@ test('crawls the fixture site and reports the known problems', { skip: !browserA
   }
 
   // Rules ported from the Docs CI script, which axe-core does not have.
-  for (const rule of ['aria-expanded-not-allowed', 'svg-accessible-name', 'link-name-suspicious']) {
+  for (const rule of ['aria-expanded-not-allowed', 'svg-accessible-name', 'link-name-suspicious', 'focusable-no-role']) {
     assert.ok(failed.includes(rule), `expected custom rule ${rule} to fail, got ${failed.join(', ')}`);
   }
   const outcome = (id) => body.rules.find((r) => r.rule_id === id);
   assert.deepEqual(['link-name-generic', 'link-name-short'].map((id) => outcome(id)?.outcome), ['review', 'review']);
   assert.deepEqual([outcome('aria-expanded-not-allowed').open, outcome('svg-accessible-name').open, outcome('link-name-suspicious').open], [1, 1, 1]);
+  assert.equal(outcome('focusable-no-role').open, 1, 'the div is flagged; the focusable label is not');
   assert.equal(outcome('aria-expanded-not-allowed').custom, true);
   assert.deepEqual(outcome('aria-expanded-not-allowed').criteria.map((c) => c.num), ['4.1.2']);
 
@@ -116,4 +121,27 @@ test('crawls the fixture site and reports the known problems', { skip: !browserA
 
   const csv = await call(`/api/findings.csv?scan=${rerun.body.id}&status=dismissed`);
   assert.equal(csv.body.trim().split('\r\n').length, 2, 'header plus the one dismissed finding');
+});
+
+test('scans exactly the pages that were listed, and removing the scan removes its results', { skip: !browserAvailable && 'no browser available' }, async () => {
+  // Listed in this order, with a duplicate; no links are followed because extraPages is 0.
+  const created = await post('/api/scans', { urls: [`${siteUrl}/good.html`, `${siteUrl}/bad.html`, `${siteUrl}/good.html#top`], extraPages: 0, viewport: 'desktop' });
+  assert.equal(created.status, 201);
+  assert.deepEqual(created.body.pages_listed, [`${siteUrl}/good.html`, `${siteUrl}/bad.html`]);
+  assert.equal(created.body.max_pages, 2);
+  await queue.whenIdle();
+
+  const { body } = await call(`/api/scans/${created.body.id}`);
+  assert.equal(body.scan.status, 'done', body.scan.error);
+  assert.deepEqual(body.pages.map((p) => p.url), [`${siteUrl}/good.html`, `${siteUrl}/bad.html`]);
+  const [good, bad] = body.pages;
+  assert.equal(body.scan.score, Math.round((good.score + bad.score) / 2), 'the scan score is the mean of the listed pages');
+
+  // bad.html was never scanned before under this address, so its findings exist only in this scan.
+  const before = (await call(`/api/findings?scan=${created.body.id}`)).body.total;
+  assert.ok(before > 0);
+  const all = (await call('/api/findings?limit=1')).body.total;
+  assert.equal((await call(`/api/scans/${created.body.id}`, { method: 'DELETE' })).status, 204);
+  assert.equal((await call(`/api/scans/${created.body.id}`)).status, 404);
+  assert.equal((await call('/api/findings?limit=1')).body.total, all - before, 'findings seen only in the removed scan are gone');
 });

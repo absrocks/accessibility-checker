@@ -19,6 +19,19 @@ export const CUSTOM_RULES = [
     tags: ['custom', 'wcag2a', 'wcag412'],
   },
   {
+    id: 'focusable-no-role',
+    level: 'error',
+    impactRank: 3,
+    help: 'Focusable elements must have a role',
+    description:
+      'A div or span was put in the keyboard focus order with tabindex, but it has no role, so assistive technology cannot ' +
+      'tell people what it is or how to use it. Use a native element such as button or a link, or add the ARIA role that ' +
+      'matches what it does (for a scrollable area, role="region" with an aria-label). Content that is not interactive ' +
+      'should not be in the focus order; tabindex="-1" keeps it focusable from script only.',
+    helpUrl: 'https://www.w3.org/WAI/WCAG22/Understanding/name-role-value',
+    tags: ['custom', 'wcag2a', 'wcag412'],
+  },
+  {
     id: 'svg-accessible-name',
     level: 'error',
     impactRank: 3,
@@ -124,6 +137,20 @@ export function runCustomRulesInPage({ maxHtml }) {
       const role = axe.commons.aria.getRole(el);
       if (!expandable.has(role)) {
         flag('aria-expanded-not-allowed', el, role ? `The element's role is "${role}"` : 'The element has no role');
+      }
+    }
+
+    // Focusable element with no implicit or explicit role. Only elements put
+    // in the tab order with tabindex are checked; elements that mean something
+    // without an ARIA role, such as label and summary, are left alone.
+    const meaningful = new Set(['label', 'summary', 'legend', 'caption', 'figcaption', 'video', 'audio', 'object', 'embed', 'iframe', 'canvas', 'body', 'html']);
+    for (const el of document.querySelectorAll('[tabindex]')) {
+      if (!(parseInt(el.getAttribute('tabindex'), 10) >= 0) || !exposed(el)) continue;
+      count('focusable-no-role');
+      const tag = el.tagName.toLowerCase();
+      const role = axe.commons.aria.getRole(el);
+      if ((!role || role === 'generic' || role === 'none' || role === 'presentation') && !meaningful.has(tag)) {
+        flag('focusable-no-role', el, `This ${tag.toUpperCase()} is focusable (tabindex="${el.getAttribute('tabindex')}") but has no role`);
       }
     }
   } finally {
