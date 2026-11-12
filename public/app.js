@@ -12,10 +12,10 @@ const SVG_NS = 'http://www.w3.org/2000/svg';
 let config = { standards: [], viewports: [], maxPages: 50, engine: '' };
 let stopView = null; // cancels the current view's polling
 
-// A published snapshot has no server behind it: index.html is marked, the
-// data comes from data.json, and everything that would change data is hidden.
-const STATIC = document.querySelector('meta[name="checker-mode"]')?.content === 'static';
-let snapshotAt = null;
+// The published copy has no server behind it. Its index.html is marked, and
+// the API then runs inside the page (browser-api.js) instead of over HTTP.
+const HOSTED = document.querySelector('meta[name="checker-mode"]')?.content === 'static';
+let hosted = null; // set at startup when HOSTED: published date, local-change state, reset()
 
 // ---------------------------------------------------------------- helpers
 
@@ -139,8 +139,8 @@ async function viewOverview(_m, query) {
   const data = await api(`/api/overview${site ? `?site=${encodeURIComponent(site)}` : ''}`);
   const head = [
     h('h1', {}, 'Overview'),
-    h('p', { class: 'lede' }, STATIC
-      ? `Read-only snapshot of scan results, taken ${fmtDate(snapshotAt)}.`
+    h('p', { class: 'lede' }, HOSTED
+      ? `Results published ${fmtDate(hosted.publishedAt)}${hosted.hasLocalChanges() ? ', with changes made in this browser' : ''}.`
       : 'Accessibility health across your finished scans.'),
   ];
   if (data.sites.length > 1) {
@@ -152,8 +152,7 @@ async function viewOverview(_m, query) {
   }
   if (!data.latest) {
     return page('Overview', head, h('div', { class: 'card empty' },
-      h('p', {}, STATIC ? 'This snapshot has no finished scans.' : 'No finished scans yet.'),
-      STATIC ? null : h('a', { class: 'button', href: '#/scans' }, 'Run your first scan')));
+      h('p', {}, 'No finished scans yet.'), h('a', { class: 'button', href: '#/scans' }, 'Run your first scan')));
   }
 
   const { latest, previous, trend } = data;
@@ -208,7 +207,7 @@ function trendChart(trend) {
 
 function scansTable(scans, { compact = false, onChange } = {}) {
   return table({ text: 'Scans', hidden: true },
-    ['Started', 'Address', compact ? null : 'Standard', { label: 'Pages', num: true }, 'Status', 'Score', { label: 'Failed findings', num: true }, STATIC ? null : 'Actions'].filter(Boolean),
+    ['Started', 'Address', compact ? null : 'Standard', { label: 'Pages', num: true }, 'Status', 'Score', { label: 'Failed findings', num: true }, 'Actions'].filter(Boolean),
     scans.map((sc) => h('tr', {},
       h('td', {}, fmtDate(sc.created_at)),
       h('td', { class: 'wrap' }, h('a', { href: `#/scans/${sc.id}` }, sc.url),
@@ -218,49 +217,77 @@ function scansTable(scans, { compact = false, onChange } = {}) {
       h('td', {}, statusBadge(sc.status)),
       h('td', {}, scoreText(sc.score)),
       h('td', { class: 'num' }, sc.status === 'done' ? sc.fail_count : '—'),
-      STATIC ? null : h('td', {},
+      h('td', {},
         h('button', { class: 'link', 'aria-label': `Re-run scan of ${sc.url}`, onclick: () => rerun(sc.id).catch((e) => announce(e.message)) }, 'Re-run'),
         compact ? null : removeButton(sc, onChange)))),
     'No scans yet.');
 }
 
 /**
- * "Remove" for one scan. Removing cannot be undone, so the first press only
- * arms the button; a second press within a few seconds does it.
+ * A button for something that cannot be undone. The first press only arms
+ * it; a second press within a few seconds does it. Moving away disarms it.
  */
-function removeButton(sc, onChange) {
-  const what = `scan of ${sc.url} from ${fmtDate(sc.created_at)}`;
+function twoStepButton({ label, armedLabel, name, warning, action, cls = 'link' }) {
   let armed = false;
   let timer;
-  const button = h('button', { class: 'link', 'aria-label': `Remove ${what}` }, 'Remove');
+  const button = h('button', { class: cls, type: 'button', 'aria-label': `${label} ${name}` }, label);
   const disarm = () => {
     armed = false;
-    button.textContent = 'Remove';
-    button.setAttribute('aria-label', `Remove ${what}`);
+    clearTimeout(timer);
+    button.textContent = label;
+    button.setAttribute('aria-label', `${label} ${name}`);
     button.classList.remove('danger');
   };
   button.addEventListener('click', async () => {
     if (!armed) {
       armed = true;
-      button.textContent = 'Confirm remove';
-      button.setAttribute('aria-label', `Confirm: remove ${what} and its results`);
+      button.textContent = armedLabel;
+      button.setAttribute('aria-label', `${armedLabel}: ${name}`);
       button.classList.add('danger');
-      announce('Press again to remove this scan and its results. This cannot be undone.');
+      announce(warning);
       timer = setTimeout(disarm, 6000);
       return;
     }
-    clearTimeout(timer);
+    disarm();
     try {
-      await api(`/api/scans/${sc.id}`, { method: 'DELETE' });
-      announce('Scan removed');
-      onChange?.();
+      await action();
     } catch (e) {
-      disarm();
       announce(e.message);
     }
   });
-  button.addEventListener('blur', () => { clearTimeout(timer); disarm(); });
+  button.addEventListener('blur', disarm);
   return button;
+}
+
+const removeButton = (sc, onChange) => twoStepButton({
+  label: 'Remove',
+  armedLabel: 'Confirm remove',
+  name: `scan of ${sc.url} from ${fmtDate(sc.created_at)}`,
+  warning: 'Press again to remove this scan and its results. This cannot be undone.',
+  action: async () => {
+    await api(`/api/scans/${sc.id}`, { method: 'DELETE' });
+    announce('Scan removed');
+    onChange?.();
+  },
+});
+
+/** Explains, on the published copy, where scans run and where changes are kept. */
+function hostedNotice() {
+  return h('section', { class: 'card notice', 'aria-label': 'About scanning on this page' },
+    h('p', {}, h('strong', {}, 'Scans here run in your browser. '),
+      `They can read pages on this address (${location.origin}/…) and on other sites that allow it. A site that does not allow it cannot be scanned from here; use the checker on your own computer for that. Pages are checked without running their own scripts.`),
+    h('p', {}, hosted.canSave()
+      ? 'Scans you run, and anything you remove or dismiss, are saved in this browser only.'
+      : 'This browser is not letting the page save data, so your changes last only until you close or reload it.',
+      hosted.publishedIsNewer() ? ' The published results have been updated since your copy was made.' : ''),
+    hosted.hasLocalChanges() ? twoStepButton({
+      label: 'Reset to published results',
+      armedLabel: 'Confirm reset',
+      name: '(discards the scans and changes saved in this browser)',
+      warning: 'Press again to discard the scans and changes saved in this browser.',
+      action: () => hosted.reset(),
+      cls: '',
+    }) : null);
 }
 
 async function viewScans() {
@@ -286,7 +313,7 @@ async function viewScans() {
     h('h2', {}, 'Run a scan'),
     h('div', { class: 'row' },
       h('div', { class: 'wide' }, h('label', { for: 'urls' }, 'Pages to scan, one address per line'),
-        h('textarea', { id: 'urls', name: 'urls', rows: 4, required: true, spellcheck: 'false', placeholder: 'https://example.com/\nhttps://example.com/about/', 'aria-describedby': 'pages-hint' })),
+        h('textarea', { id: 'urls', name: 'urls', rows: 4, required: true, spellcheck: 'false', placeholder: HOSTED ? `${location.origin}/your-site/\n${location.origin}/your-site/about/` : 'https://example.com/\nhttps://example.com/about/', 'aria-describedby': 'pages-hint' })),
       h('div', {}, h('label', { for: 'extraPages' }, 'More pages found by following links'),
         h('input', { id: 'extraPages', name: 'extraPages', type: 'number', min: 0, max: config.maxPages - 1, value: 0, 'aria-describedby': 'pages-hint' })),
       h('div', {}, h('label', { for: 'standard' }, 'Standard'),
@@ -305,9 +332,9 @@ async function viewScans() {
     return scans.some((sc) => sc.status === 'queued' || sc.status === 'running');
   };
   page('Scans', h('h1', {}, 'Scans'),
-    h('p', { class: 'lede' }, STATIC ? 'Scans in this snapshot. New scans are run in the checker on your own computer.' : 'Add the pages you want checked. Each scan gets a score from the pages in it; remove a scan to discard its results.'),
-    STATIC ? null : form, list);
-  if ((await refresh()) && !STATIC) poll(refresh);
+    h('p', { class: 'lede' }, 'Add the pages you want checked. Each scan gets a score from the pages in it; remove a scan to discard its results.'),
+    HOSTED ? hostedNotice() : null, form, list);
+  if (await refresh()) poll(refresh);
 }
 
 // ------------------------------------------------------------ scan detail
@@ -318,7 +345,7 @@ async function viewScan([id], query) {
   const head = [
     crumbs([['Scans', '#/scans'], ['Scan results']]),
     h('div', { class: 'spread' }, h('h1', {}, 'Scan results'),
-      STATIC ? null : h('button', { onclick: () => rerun(scan.id).catch((e) => announce(e.message)) }, 'Re-run scan')),
+      h('button', { onclick: () => rerun(scan.id).catch((e) => announce(e.message)) }, 'Re-run scan')),
     h('p', { class: 'lede' }, scan.url, scan.pages_listed.length > 1 ? ` and ${scan.pages_listed.length - 1} more listed page${scan.pages_listed.length === 2 ? '' : 's'}` : ''),
     h('ul', { class: 'meta' },
       h('li', {}, statusBadge(scan.status)),
@@ -472,15 +499,13 @@ async function viewFindings([scanId], query) {
 
   const filterChanged = () => { state.offset = 0; state.selected.clear(); load(); };
 
-  // A snapshot has no server to build the CSV, so build it here from the same filters.
+  // The published copy has no server to send a file, so hand the CSV over as a download here.
   const downloadCsv = async () => {
-    const p = params();
-    p.set('limit', 1000000);
-    const [{ items }, { findingsCsv }] = await Promise.all([api(`/api/findings?${p}`), import('./static-api.js')]);
-    const link = h('a', { href: URL.createObjectURL(new Blob([findingsCsv(items)], { type: 'text/csv' })), download: 'findings.csv' });
+    const text = await api(`/api/findings.csv?${params()}`);
+    const link = h('a', { href: URL.createObjectURL(new Blob([text], { type: 'text/csv' })), download: 'findings.csv' });
     link.click();
     URL.revokeObjectURL(link.href);
-    announce(`Downloaded ${items.length} finding${items.length === 1 ? '' : 's'}`);
+    announce('Downloaded findings.csv');
   };
 
   function renderChips() {
@@ -519,15 +544,15 @@ async function viewFindings([scanId], query) {
     const ids = state.items.map((f) => f.id);
     const allSelected = ids.length > 0 && ids.every((i) => state.selected.has(i));
     const chosen = [...state.selected];
-    const actions = STATIC
-      ? h('div', { class: 'toolbar' }, h('button', { class: 'grow', onclick: () => downloadCsv().catch((e) => announce(e.message)) }, 'Download CSV'))
-      : h('div', { class: 'toolbar' },
-        h('button', { disabled: !chosen.length, onclick: () => setStatus(chosen, 'dismissed').catch((e) => announce(e.message)) }, `Dismiss selected (${chosen.length})`),
-        h('button', { disabled: !chosen.length, onclick: () => setStatus(chosen, 'open').catch((e) => announce(e.message)) }, `Restore selected (${chosen.length})`),
-        h('a', { class: 'button grow', href: `api/findings.csv?${params()}`, download: 'findings.csv' }, 'Download CSV'));
+    const actions = h('div', { class: 'toolbar' },
+      h('button', { disabled: !chosen.length, onclick: () => setStatus(chosen, 'dismissed').catch((e) => announce(e.message)) }, `Dismiss selected (${chosen.length})`),
+      h('button', { disabled: !chosen.length, onclick: () => setStatus(chosen, 'open').catch((e) => announce(e.message)) }, `Restore selected (${chosen.length})`),
+      HOSTED
+        ? h('button', { class: 'grow', onclick: () => downloadCsv().catch((e) => announce(e.message)) }, 'Download CSV')
+        : h('a', { class: 'button grow', href: `api/findings.csv?${params()}`, download: 'findings.csv' }, 'Download CSV'));
 
     const rows = state.items.map((f, index) => h('tr', {},
-      STATIC ? null : h('td', {}, h('input', { type: 'checkbox', checked: state.selected.has(f.id), 'aria-label': `Select finding F-${f.id}`,
+      h('td', {}, h('input', { type: 'checkbox', checked: state.selected.has(f.id), 'aria-label': `Select finding F-${f.id}`,
         onchange: (e) => { if (e.target.checked) state.selected.add(f.id); else state.selected.delete(f.id); render(); } })),
       h('td', {}, `F-${f.id}`),
       ruleId ? null : h('td', {}, f.rule_help || f.rule_id, f.kind === 'review' ? h('span', { class: 'delta' }, ' (needs review)') : null),
@@ -541,7 +566,7 @@ async function viewFindings([scanId], query) {
     const end = Math.min(state.offset + state.limit, state.total);
     results.replaceChildren(actions,
       table({ text: `${state.total} finding${state.total === 1 ? '' : 's'}` },
-        [STATIC ? null : h('input', { type: 'checkbox', checked: allSelected, 'aria-label': 'Select all findings on this page',
+        [h('input', { type: 'checkbox', checked: allSelected, 'aria-label': 'Select all findings on this page',
           onchange: (e) => { for (const i of ids) { if (e.target.checked) state.selected.add(i); else state.selected.delete(i); } render(); } }),
         'ID', ruleId ? null : 'Problem', 'Page', 'Element', 'Severity', 'Status', 'Actions'].filter((x) => x != null),
         rows, 'No findings match these filters.'),
@@ -591,7 +616,7 @@ async function viewFindings([scanId], query) {
         h('div', { class: 'row' },
           h('button', { disabled: index === 0, onclick: () => openFinding(index - 1) }, 'Previous finding'),
           h('button', { disabled: index >= state.items.length - 1, onclick: () => openFinding(index + 1) }, 'Next finding')),
-        STATIC ? null : f.status === 'open'
+        f.status === 'open'
           ? h('div', { class: 'row' }, h('div', {}, h('label', { for: 'dismiss-reason' }, 'Reason (optional)'), reason),
             h('button', { class: 'primary', onclick: async () => { await setStatus([f.id], 'dismissed', reason.value); await openFinding(state.items.findIndex((x) => x.id === f.id)); } }, 'Dismiss finding'))
           : h('button', { class: 'primary', onclick: async () => { await setStatus([f.id], 'open'); await openFinding(state.items.findIndex((x) => x.id === f.id)); } }, 'Restore finding')));
@@ -636,16 +661,16 @@ async function route(moveFocus = true) {
 
 window.addEventListener('hashchange', () => route());
 
-if (STATIC) {
+if (HOSTED) {
   try {
-    const snapshot = await (await import('./static-api.js')).createStaticApi();
-    api = snapshot.api;
-    snapshotAt = snapshot.generatedAt;
+    hosted = await (await import('./browser-api.js')).createBrowserApi();
+    api = hosted.api;
   } catch (e) {
-    page('Error', h('h1', {}, 'The snapshot could not be loaded'), h('p', { class: 'error', role: 'alert' }, e.message));
+    page('Error', h('h1', {}, 'The checker could not start'), h('p', { class: 'error', role: 'alert' }, e.message));
     throw e;
   }
 }
+window.checkerApi = (...args) => api(...args); // lets tests and the console talk to whichever API is in use
 config = await api('/api/config').catch(() => config);
-document.getElementById('engine').textContent = STATIC ? `${config.engine} · read-only snapshot` : config.engine;
+document.getElementById('engine').textContent = config.engine;
 route(false);

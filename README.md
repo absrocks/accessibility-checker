@@ -27,21 +27,32 @@ npm test
 The end-to-end test starts a real browser and scans the pages in
 `test/fixtures/`.
 
-## Publish a read-only snapshot
-
-The checker needs a server and a browser, so it cannot run on a static host.
-What can be published is a snapshot: the same interface, reading the current
-scan results from a `data.json` file. Scanning, dismissing and restoring are
-not available there.
+## Publish a copy that runs in the browser
 
 ```bash
 npm run deploy
 ```
 
-This exports the database as it is now and replaces the `gh-pages` branch of
-the `origin` remote, which GitHub Pages serves. Run it again after new scans
-to update the published copy. `npm run export -- <directory>` writes the same
-files without publishing them.
+This writes a version of the checker that needs no server and replaces the
+`gh-pages` branch of the `origin` remote, which GitHub Pages serves. Run it
+again to publish newer results. `npm run export -- <directory>` writes the
+same files without publishing them.
+
+The published copy is the same interface and the same code (`src/core` is
+copied into it), with SQLite and axe-core running inside the page:
+
+- It opens with the results that were in your database when you deployed.
+- Visitors can run scans, remove scans, and dismiss or restore findings.
+  Those changes are saved in their own browser only, and "Reset to published
+  results" discards them.
+- **It can only scan sites that let other websites read them.** That means
+  pages on the same address as the published copy, and sites that send an
+  `Access-Control-Allow-Origin` header, which GitHub Pages does. A site that
+  does not, such as one on an ordinary Apache server, fails with a message
+  saying so; scan it with the local checker instead.
+- A page is fetched and rendered in a sandboxed frame **without running its
+  own scripts**, and a "mobile" scan is a narrow window, not an emulated
+  phone. Scores can differ slightly from the local checker for that reason.
 
 The published page is public even when the repository is private, and it
 contains the addresses, markup snippets and page titles of everything scanned.
@@ -108,8 +119,8 @@ comparable with other tools.
   Level Access, for example, also reports elements that are hidden from
   screen readers, and has rules for non-unique link names and for visible
   text missing from an accessible name.
-- The published snapshot cannot scan. A page on GitHub Pages can only read
-  sites that allow it; `hpc.njit.edu` does not send that permission.
+- The published copy can only scan sites that allow other websites to read
+  them; see "Publish a copy that runs in the browser".
 - Content inside iframes is not evaluated.
 - Pages behind a login are not reachable; the scanner has no session.
 - The crawler follows links found in the page, not sitemaps, and does not read
@@ -119,16 +130,18 @@ comparable with other tools.
 
 ## Layout
 
-    src/server.js    HTTP API and static files
-    src/jobs.js      scan queue
-    src/scanner.js   browser launch, crawl, axe-core run, viewport merge
-    src/custom-rules.js  rules axe-core does not have
-    src/db.js        SQLite schema and queries
-    src/score.js     scoring
-    src/search.js    advanced search
-    src/views.js     response shapes shared by the API and the snapshot
-    src/export.js    static snapshot
-    scripts/deploy.sh  publish the snapshot to GitHub Pages
-    src/wcag.js      WCAG criteria table and axe tag mapping
-    public/          the web interface (no build step)
-    test/            unit and end-to-end tests
+    src/core/            everything that runs both on the server and in the browser:
+      store.js             SQLite schema and queries
+      api.js               the API, independent of HTTP
+      engine.js            viewports, crawl loop, axe-core result handling
+      custom-rules.js      rules axe-core does not have
+      jobs.js score.js search.js urls.js views.js wcag.js sha1.js sqljs-adapter.js
+    src/server.js        local web server (Express) around the API
+    src/scanner.js       page scanner using Playwright and an installed browser
+    src/db.js            opens the database with Node's built-in SQLite
+    src/export.js        writes the copy that runs in the browser
+    public/              the interface (no build step)
+      browser-api.js       the API inside the page, on sql.js, saved to IndexedDB
+      browser-scanner.js   page scanner using fetch and sandboxed frames
+    scripts/deploy.sh    publish to GitHub Pages
+    test/                unit, end-to-end and real-browser tests

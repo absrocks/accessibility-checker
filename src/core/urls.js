@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { sha1Hex } from './sha1.js';
 
 const SKIP_EXT = /\.(pdf|zip|gz|tar|tgz|rar|7z|dmg|exe|msi|pkg|jpg|jpeg|png|gif|svg|webp|ico|bmp|mp3|mp4|mov|avi|wav|webm|css|js|json|xml|rss|csv|xlsx?|docx?|pptx?|woff2?|ttf|eot)$/i;
 
@@ -33,8 +33,5 @@ export function isCrawlable(href, origin) {
  * same element of the same page is the same finding.
  */
 export function fingerprint(ruleId, url, selector) {
-  return createHash('sha1')
-    .update(`${ruleId}\n${normalizeUrl(url) || url}\n${selector}`)
-    .digest('hex')
-    .slice(0, 20);
+  return sha1Hex(`${ruleId}\n${normalizeUrl(url) || url}\n${selector}`).slice(0, 20);
 }

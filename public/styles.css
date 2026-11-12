@@ -212,3 +212,8 @@ dialog::backdrop { background: rgba(0, 0, 0, 0.55); }
   .spin { display: inline-block; animation: spin 1.2s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
 }
+
+.notice { border-left: 4px solid var(--accent); }
+.notice p { margin: 0 0 10px; }
+.notice p:last-child { margin-bottom: 0; }
+button.danger { color: var(--poor); font-weight: 700; border-color: var(--poor); }

@@ -6,8 +6,8 @@ import { dirname, join } from 'node:path';
 import { after, before, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { openStore } from '../src/db.js';
-import { createQueue } from '../src/jobs.js';
-import { launchBrowser } from '../src/scanner.js';
+import { createQueue } from '../src/core/jobs.js';
+import { crawlAndScan, launchBrowser } from '../src/scanner.js';
 import { createApp } from '../src/server.js';
 
 const fixtures = join(dirname(fileURLToPath(import.meta.url)), 'fixtures');
@@ -34,7 +34,7 @@ before(async () => {
   });
   siteUrl = `http://127.0.0.1:${await listen(site)}`;
   store = openStore(':memory:');
-  queue = createQueue(store);
+  queue = createQueue(store, crawlAndScan);
   api = createServer(createApp(store, queue));
   apiUrl = `http://127.0.0.1:${await listen(api)}`;
 });

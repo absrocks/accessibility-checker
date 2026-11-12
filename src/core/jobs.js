@@ -1,10 +1,8 @@
-import { crawlAndScan } from './scanner.js';
-
 /**
- * Runs queued scans one at a time. `scanner` is injectable so tests can run
- * the queue without a browser.
+ * Runs queued scans one at a time. `scanner(scan, onPage)` does the work:
+ * Playwright on the server, iframes on the published site, a stub in tests.
  */
-export function createQueue(store, scanner = crawlAndScan) {
+export function createQueue(store, scanner) {
   const pending = [];
   let active = null;
   let idle = Promise.resolve();

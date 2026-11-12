@@ -1,13 +1,13 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { openStore } from '../src/db.js';
-import { createQueue } from '../src/jobs.js';
-import { CUSTOM_RULES, shapeCustomResults } from '../src/custom-rules.js';
-import { mergeViewportResults } from '../src/scanner.js';
-import { pageScore, scanScore } from '../src/score.js';
-import { SearchError, compileSearch } from '../src/search.js';
-import { fingerprint, isCrawlable, normalizeUrl, parseTarget } from '../src/urls.js';
-import { criteriaFromTags, levelOfRule } from '../src/wcag.js';
+import { createQueue } from '../src/core/jobs.js';
+import { CUSTOM_RULES, shapeCustomResults } from '../src/core/custom-rules.js';
+import { mergeViewportResults } from '../src/core/engine.js';
+import { pageScore, scanScore } from '../src/core/score.js';
+import { SearchError, compileSearch } from '../src/core/search.js';
+import { fingerprint, isCrawlable, normalizeUrl, parseTarget } from '../src/core/urls.js';
+import { criteriaFromTags, levelOfRule } from '../src/core/wcag.js';
 
 test('criteriaFromTags reads one- and two-digit criterion numbers', () => {
   const got = criteriaFromTags(['cat.aria', 'wcag2a', 'wcag412', 'wcag1410']);

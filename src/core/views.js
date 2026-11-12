@@ -1,6 +1,5 @@
-// Shapes sent to the interface. Shared by the live API (server.js) and the
-// static snapshot (export.js) so both show the same thing.
-import { ENGINE, VIEWPORTS } from './scanner.js';
+// Shapes sent to the interface.
+import { VIEWPORTS } from './engine.js';
 import { IMPACT_LABEL } from './score.js';
 import { STANDARDS, criteriaFromTags, levelOfRule } from './wcag.js';
 
@@ -26,9 +25,9 @@ export function describeScan(s) {
   };
 }
 
-export function configView() {
+export function configView(engine) {
   return {
-    engine: ENGINE,
+    engine,
     maxPages: MAX_PAGES,
     standards: Object.entries(STANDARDS).map(([id, s]) => ({ id, label: s.label })),
     viewports: Object.entries(VIEWPORTS).map(([id, v]) => ({ id, label: v.label })),
