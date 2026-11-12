@@ -4,7 +4,7 @@
 import { CUSTOM_RULES, shapeCustomResults } from './custom-rules.js';
 import { pageScore } from './score.js';
 import { isCrawlable, normalizeUrl } from './urls.js';
-import { STANDARDS } from './wcag.js';
+import { STANDARDS, levelOfRule } from './wcag.js';
 
 export const MAX_HTML = 2_000;
 
@@ -61,10 +61,18 @@ export async function runAxeInPage({ runOptions, maxHtml }) {
       helpUrl: rule.helpUrl,
       tags: rule.tags,
     });
-    const prev = rules.get(rule.id);
-    const impactRank = rank[rule.impact] || 0;
-    if (!prev || order[outcome] > order[prev.outcome]) {
-      rules.set(rule.id, { id: rule.id, outcome, impactRank, nodes: rule.nodes.length });
+    let row = rules.get(rule.id);
+    if (!row) {
+      row = { id: rule.id, outcome, impactRank: 0, nodes: 0, passed: 0, failed: 0 };
+      rules.set(rule.id, row);
+    }
+    // Elements that passed and failed this rule, for the score.
+    if (outcome === 'pass') row.passed += rule.nodes.length;
+    if (outcome === 'fail') row.failed += rule.nodes.length;
+    if (order[outcome] >= order[row.outcome]) {
+      row.outcome = outcome;
+      row.impactRank = rank[rule.impact] || 0;
+      row.nodes = rule.nodes.length;
     }
   };
   const collect = (rule, kind) => {
@@ -105,15 +113,22 @@ export async function runAxeInPage({ runOptions, maxHtml }) {
 /** Join axe-core's results for one page view with the custom rules' results. */
 export function combineResults(axeResult, customRaw, url) {
   const custom = shapeCustomResults(customRaw);
-  const rules = [...axeResult.rules, ...custom.rules];
+  const meta = [...axeResult.meta, ...custom.meta];
+  const rules = markScored([...axeResult.rules, ...custom.rules], meta);
   return {
     ...axeResult,
     rules,
-    meta: [...axeResult.meta, ...custom.meta],
+    meta,
     findings: [...axeResult.findings, ...custom.findings],
     url,
     score: pageScore(rules),
   };
+}
+
+/** Best-practice rules are reported but do not count towards the score. */
+export function markScored(rules, meta) {
+  const tags = new Map(meta.map((m) => [m.id, m.tags]));
+  return rules.map((r) => ({ ...r, scored: levelOfRule(tags.get(r.id)) !== 'Best practice' }));
 }
 
 const OUTCOME_ORDER = { inapplicable: 0, pass: 1, review: 2, fail: 3 };
@@ -137,6 +152,7 @@ export function mergeViewportResults(results, names) {
         if (OUTCOME_ORDER[r.outcome] > OUTCOME_ORDER[prev.outcome]) prev.outcome = r.outcome;
         prev.impactRank = Math.max(prev.impactRank || 0, r.impactRank || 0);
         prev.nodes = Math.max(prev.nodes || 0, r.nodes || 0);
+        prev.passed = Math.max(prev.passed || 0, r.passed || 0);
       }
     }
     for (const f of result.findings) {
@@ -154,7 +170,10 @@ export function mergeViewportResults(results, names) {
     ...f,
     summary: [f.summary, `Seen at: ${seenAt.join(', ')}`].filter(Boolean).join('\n'),
   }));
-  const allRules = [...rules.values()];
+  // An element failing at two widths is one failure, so count the merged findings.
+  const failedByRule = new Map();
+  for (const f of merged) if (f.kind === 'fail') failedByRule.set(f.ruleId, (failedByRule.get(f.ruleId) || 0) + 1);
+  const allRules = [...rules.values()].map((r) => ({ ...r, failed: failedByRule.get(r.id) || 0 }));
   return {
     ...results[0],
     rules: allRules,

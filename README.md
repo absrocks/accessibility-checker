@@ -2,7 +2,7 @@
 
 A local web app that scans web pages for accessibility problems and tracks the
 findings over time. It loads each page in headless Chrome, evaluates it with
-[axe-core](https://github.com/dequelabs/axe-core) plus six custom rules, and
+[axe-core](https://github.com/dequelabs/axe-core) plus eleven custom rules, and
 stores the results in a SQLite file.
 
 ## Run it
@@ -80,36 +80,75 @@ contains the addresses, markup snippets and page titles of everything scanned.
 
 ## Custom rules
 
-axe-core does not have these. They are in `src/custom-rules.js`. Five were
-ported from the Docs site's CI script (`.github/scripts/a11y-check.cjs`), and
-`focusable-no-role` was added here; all imitate rules of Level Access's Access
-Engine. They always run.
+axe-core does not have these. They are in `src/core/custom-rules.js` and
+always run. Each one imitates a rule of Level Access's Access Engine, written
+from what that product reports on real pages, not from its code. Five came
+from the Docs site's CI script (`.github/scripts/a11y-check.cjs`).
 
 | Rule | Recorded as | Criterion | What it flags |
 |---|---|---|---|
-| `aria-expanded-not-allowed` | Failed | 4.1.2 | `aria-expanded` on a role ARIA 1.2 does not allow it on, such as `nav` |
-| `focusable-no-role` | Failed | 4.1.2 | A `div`, `span` or similar put in the tab order with `tabindex` but given no role |
-| `svg-accessible-name` | Failed | 1.1.1 | An exposed inline SVG with no name, outside a control |
-| `link-name-suspicious` | Failed | 2.4.4 | A link named only by a symbol, or by more than 150 characters |
+| `aria-expanded-not-allowed` | Failed, serious | 4.1.2 | `aria-expanded` on a role ARIA 1.2 does not allow it on, such as `nav` |
+| `focusable-no-role` | Failed, serious | 4.1.2 | A `div`, `span` or similar put in the tab order with `tabindex` but given no role |
+| `link-name-not-unique` | Failed, serious | 2.4.4 | Links with the same name that go to different places |
+| `link-name-suspicious` | Failed, serious | 2.4.4 | A link named only by a symbol, or by more than 150 characters |
+| `svg-accessible-name` | Failed, serious | 1.1.1 | An exposed inline SVG with no name, outside a control |
+| `link-label-in-name` | Failed, minor | 2.5.3 | A link with an `aria-label` that does not contain its visible text exactly |
+| `table-no-headers` | Failed, minor | 1.3.1 | A table with no `th` and no caption that is not marked `role="presentation"` |
 | `link-name-generic` | Needs review | 2.4.4 | A link named "click here", "read more" and similar |
 | `link-name-short` | Needs review | 2.4.4 | A link name of three characters or fewer that is not a number |
+| `list-empty` | Needs review | 1.3.1 | A `ul` or `ol` with no `li` children |
+| `label-empty` | Needs review | 1.3.1 | A `label` with no text |
 
 The rules skip elements hidden from screen readers. A responsive site hides
 different elements at each width, which is why scanning at both viewports
 matters: on one documentation page, 1 of 28 `nav[aria-expanded]` elements is
 exposed at desktop width and all 28 at mobile width.
 
+### Compared with Level Access
+
+On `https://hpc.njit.edu/MIG/` (11 Nov 2026) Access Engine reported 47
+findings and this checker 39 of the same ones:
+
+| Level Access rule | Level Access | This checker |
+|---|---:|---:|
+| Aria-expanded used where it is not allowed | 28 | 28 |
+| Focusable elements cannot be missing a role | 1 | 1 |
+| Link has non-unique accessible name | 4 | 4 |
+| A element contains visible text not found in the accessible name | 6 | 6 |
+| Non-large text without sufficient contrast | 8 | 0 |
+| Ul element is empty (flagged) | 1 | 1 |
+| Label element empty (flagged) | 1 | 1 |
+
+The eight contrast findings are not reproduced on purpose. They are white and
+light-grey footer text on a near-black background (`rgba(0, 0, 0, 0.87)`);
+Level Access reports the background as white. axe-core measures the real
+colours and passes them. Level Access also flags the events table on another
+page as a layout table although it has seven header cells; `table-no-headers`
+does not.
+
 ## How the score works
 
-For each page: every rule that passed counts 1; every rule that failed counts
-against the page by severity (critical 4, serious 3, moderate 2, minor 1).
+A page's score is a weighted average over the rules that were checked:
 
-    score = 100 × passed / (passed + sum of failed weights)
+- A rule that passed weighs 1 and earns 1.
+- A rule that failed weighs its severity (critical 4, serious 3, moderate 2,
+  minor 1) and earns `weight × 0.5 × share of checked elements that passed`.
+- Rules that need review, did not apply, or are only best practices are left
+  out.
 
-Rules that need manual review and rules that did not apply are left out. A
-scan's score is the mean of its page scores. Bands: 85 and up is Good, 60 to 84
-is Fair, below 60 is Poor. The formula is this project's own; scores are not
-comparable with other tools.
+    score = 100 × earned / total weight
+
+So a failing rule always costs at least half its weight, and all of it when
+every element it checked fails. More failing elements, more failing rules, or
+more severe rules lower the score; fixing some of them raises it. A scan's
+score is the mean of its page scores. Bands: 85 and up is Good, 60 to 84 is
+Fair, below 60 is Poor.
+
+Level Access's score is also a weighted average over rules, but its weights
+are not published, so the two numbers are close without being equal: 84 here
+against 80 there for the page above. Scans made before 12 Nov 2026 were
+rescored with this formula but have no element counts, so their failing rules
+earn nothing; re-run them for an exact score.
 
 ## Limits
 

@@ -83,11 +83,12 @@ test('scans listed pages in the browser and finds what the server scanner finds'
   const failed = detail.rules.filter((r) => r.outcome === 'fail').map((r) => r.rule_id).sort();
   // The same rules test/e2e.test.js expects from the Playwright scanner on these fixtures.
   for (const rule of ['image-alt', 'label', 'button-name', 'color-contrast', 'html-has-lang', 'aria-allowed-attr',
-    'aria-expanded-not-allowed', 'svg-accessible-name', 'link-name-suspicious', 'focusable-no-role']) {
+    'aria-expanded-not-allowed', 'svg-accessible-name', 'link-name-suspicious', 'focusable-no-role',
+    'link-name-not-unique', 'link-label-in-name', 'table-no-headers']) {
     assert.ok(failed.includes(rule), `expected ${rule} to fail, got ${failed.join(', ')}`);
   }
   const outcome = (id) => detail.rules.find((r) => r.rule_id === id);
-  assert.deepEqual(['link-name-generic', 'link-name-short'].map((id) => outcome(id)?.outcome), ['review', 'review']);
+  assert.deepEqual(['link-name-generic', 'link-name-short', 'list-empty', 'label-empty'].map((id) => outcome(id)?.outcome), ['review', 'review', 'review', 'review']);
   assert.deepEqual([outcome('aria-expanded-not-allowed').open, outcome('focusable-no-role').open, outcome('svg-accessible-name').open], [1, 1, 1]);
 
   const [bad, good] = detail.pages;

@@ -379,7 +379,7 @@ async function viewScan([id], query) {
   const totalOpen = data.severity.reduce((a, b) => a + b, 0);
   const summary = h('div', { class: 'grid' },
     h('section', { class: 'card' }, h('h2', {}, 'Score'), h('div', { class: 'score' }, scoreRing(scan.score),
-      h('p', {}, h('strong', {}, band(scan.score).label), h('br'), h('span', { class: 'delta' }, 'Passed rules against failed rules, weighted by severity.')))),
+      h('p', {}, h('strong', {}, band(scan.score).label), h('br'), h('span', { class: 'delta' }, 'Weighted share of the rules checked that passed. A failing rule costs more the more severe it is and the more elements fail it. Best-practice rules do not count.')))),
     h('section', { class: 'card' }, h('h2', {}, `Open failed findings (${totalOpen})`), severityBars(data.severity)),
     h('section', { class: 'card' }, h('h2', {}, 'Rules'),
       h('dl', { class: 'stats' },

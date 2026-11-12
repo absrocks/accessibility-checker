@@ -23,15 +23,23 @@ test('levelOfRule falls back to best practice', () => {
   assert.equal(levelOfRule(['best-practice', 'cat.semantics']), 'Best practice');
 });
 
-test('pageScore weights failures by severity and ignores review and inapplicable', () => {
-  const rules = [
-    ...Array.from({ length: 9 }, () => ({ outcome: 'pass' })),
-    { outcome: 'fail', impactRank: 3 },
-    { outcome: 'review', impactRank: 4 },
-    { outcome: 'inapplicable' },
-  ];
-  assert.equal(pageScore(rules), 75); // 9 / (9 + 3)
-  assert.equal(pageScore([{ outcome: 'pass' }]), 100);
+test('pageScore is a weighted average that tracks severity and how widespread a failure is', () => {
+  const passes = Array.from({ length: 9 }, () => ({ outcome: 'pass' }));
+  const fail = (impactRank, passed, failed) => ({ outcome: 'fail', impactRank, passed, failed });
+  const score = (...failing) => pageScore([...passes, ...failing, { outcome: 'review', impactRank: 4 }, { outcome: 'inapplicable' }]);
+
+  assert.equal(score(), 100);
+  assert.equal(score(fail(3, 0, 28)), 75);   // every element fails: earns nothing, 9 / (9 + 3)
+  assert.equal(score(fail(3, 27, 1)), 87);   // one of 28 fails: 9 + 3 x 0.5 x 27/28, over 12
+  assert.equal(score(fail(3, 0, 0)), 75);    // no element counts recorded: earns nothing
+  assert.ok(score(fail(3, 0, 28)) < score(fail(3, 14, 14)), 'fixing half the elements raises the score');
+  assert.ok(score(fail(3, 14, 14)) < score(fail(3, 27, 1)));
+  assert.ok(score(fail(4, 9, 1)) < score(fail(1, 9, 1)), 'a critical failure costs more than a minor one');
+  assert.ok(score(fail(3, 27, 1)) < 100, 'a single failing element still costs at least half the rule');
+  assert.ok(score(fail(3, 0, 28), fail(3, 9, 1)) < score(fail(3, 9, 1)), 'more failing rules, lower score');
+
+  // Best-practice rules are reported but never change the score, pass or fail.
+  assert.equal(pageScore([...passes, fail(3, 0, 28), { outcome: 'pass', scored: false }, { ...fail(4, 0, 5), scored: false }]), 75);
   assert.equal(pageScore([{ outcome: 'inapplicable' }]), null);
 });
 
@@ -177,9 +185,17 @@ test('custom rule results become pass, fail, review or inapplicable', () => {
     'focusable-no-role': 'inapplicable',
     'svg-accessible-name': 'inapplicable',
     'link-name-suspicious': 'pass',
+    'link-name-not-unique': 'inapplicable',
+    'link-label-in-name': 'inapplicable',
+    'table-no-headers': 'inapplicable',
+    'list-empty': 'inapplicable',
+    'label-empty': 'inapplicable',
     'link-name-generic': 'review',
     'link-name-short': 'pass',
   });
+  // Element counts feed the score: 3 checked, 1 flagged.
+  const expanded = shaped.rules.find((r) => r.id === 'aria-expanded-not-allowed');
+  assert.deepEqual([expanded.passed, expanded.failed], [2, 1]);
   assert.deepEqual(shaped.findings.map((f) => [f.ruleId, f.kind]), [['aria-expanded-not-allowed', 'fail'], ['link-name-generic', 'review']]);
   assert.equal(shaped.meta.length, CUSTOM_RULES.length);
   assert.ok(CUSTOM_RULES.every((r) => r.tags.includes('custom')));

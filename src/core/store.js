@@ -1,7 +1,11 @@
 // Storage: schema and queries. Works on any database object with the
 // node:sqlite DatabaseSync shape (exec, prepare().run/get/all), so the same
 // code runs on the server and, through sqljs-adapter.js, in the browser.
-import { scanScore } from './score.js';
+import { pageScore, scanScore } from './score.js';
+import { levelOfRule } from './wcag.js';
+
+// Bumped when the score formula changes; stored scores are then recomputed.
+const SCORE_VERSION = 2;
 import { fingerprint } from './urls.js';
 
 const SCHEMA = `
@@ -52,6 +56,8 @@ CREATE TABLE IF NOT EXISTS rule_results (
   outcome TEXT NOT NULL,           -- fail | review | pass | inapplicable
   impact_rank INTEGER NOT NULL DEFAULT 0,
   nodes INTEGER NOT NULL DEFAULT 0,
+  passed_nodes INTEGER,            -- elements that passed the rule; NULL for scans made before this was recorded
+  failed_nodes INTEGER,            -- elements that failed it
   PRIMARY KEY (page_id, rule_id)
 );
 CREATE INDEX IF NOT EXISTS rule_results_scan ON rule_results(scan_id);
@@ -100,6 +106,9 @@ export function createStore(db) {
   if (!db.prepare('PRAGMA table_info(scans)').all().some((c) => c.name === 'urls')) {
     db.exec('ALTER TABLE scans ADD COLUMN urls TEXT');
   }
+  if (!db.prepare('PRAGMA table_info(rule_results)').all().some((c) => c.name === 'passed_nodes')) {
+    db.exec('ALTER TABLE rule_results ADD COLUMN passed_nodes INTEGER; ALTER TABLE rule_results ADD COLUMN failed_nodes INTEGER;');
+  }
 
   const now = () => new Date().toISOString();
   const tx = (fn) => {
@@ -123,7 +132,7 @@ export function createStore(db) {
     upsertRule: q(`INSERT INTO rules (rule_id, help, description, help_url, tags) VALUES (?, ?, ?, ?, ?)
                    ON CONFLICT(rule_id) DO UPDATE SET help = excluded.help, description = excluded.description,
                      help_url = excluded.help_url, tags = excluded.tags`),
-    insertRuleResult: q('INSERT INTO rule_results (scan_id, page_id, rule_id, outcome, impact_rank, nodes) VALUES (?, ?, ?, ?, ?, ?)'),
+    insertRuleResult: q('INSERT INTO rule_results (scan_id, page_id, rule_id, outcome, impact_rank, nodes, passed_nodes, failed_nodes) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'),
     findingByPrint: q('SELECT id FROM findings WHERE fingerprint = ?'),
     insertFinding: q(`INSERT INTO findings (fingerprint, rule_id, url, page_title, selector, html, summary, impact_rank, kind, first_seen_at, last_seen_at)
                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`),
@@ -132,9 +141,47 @@ export function createStore(db) {
     bumpPages: q('UPDATE scans SET pages_scanned = pages_scanned + 1 WHERE id = ?'),
   };
 
+  /**
+   * Recompute every stored page and scan score with the current formula, from
+   * the rule results kept for each page. Scans made before element counts
+   * were recorded have no pass share, so their failing rules earn nothing.
+   */
+  function rescoreAll() {
+    const rows = q(`
+      SELECT rr.page_id, rr.rule_id, rr.outcome, rr.impact_rank, rr.passed_nodes, rr.failed_nodes, r.tags,
+        (SELECT COUNT(*) FROM scan_findings sf JOIN findings f ON f.id = sf.finding_id
+           WHERE sf.page_id = rr.page_id AND sf.kind = 'fail' AND f.rule_id = rr.rule_id) AS fail_findings
+      FROM rule_results rr LEFT JOIN rules r ON r.rule_id = rr.rule_id`).all();
+    const byPage = new Map();
+    for (const row of rows) {
+      if (!byPage.has(row.page_id)) byPage.set(row.page_id, []);
+      byPage.get(row.page_id).push({
+        outcome: row.outcome,
+        impactRank: row.impact_rank,
+        passed: row.passed_nodes ?? 0,
+        failed: row.failed_nodes ?? row.fail_findings,
+        scored: levelOfRule(JSON.parse(row.tags || '[]')) !== 'Best practice',
+      });
+    }
+    const setPage = q('UPDATE pages SET score = ? WHERE id = ?');
+    const setScan = q('UPDATE scans SET score = ? WHERE id = ?');
+    tx(() => {
+      for (const [pageId, rules] of byPage) setPage.run(pageScore(rules), pageId);
+      for (const scan of q(`SELECT id FROM scans WHERE status = 'done'`).all()) {
+        const scores = q('SELECT score FROM pages WHERE scan_id = ? AND error IS NULL').all(scan.id).map((p) => p.score);
+        setScan.run(scanScore(scores), scan.id);
+      }
+    });
+  }
+  if (db.prepare('PRAGMA user_version').get().user_version < SCORE_VERSION) {
+    rescoreAll();
+    db.exec(`PRAGMA user_version = ${SCORE_VERSION}`);
+  }
+
   return {
     db,
     close: () => db.close(),
+    rescoreAll,
 
     // ---- scans -----------------------------------------------------------
 
@@ -213,7 +260,7 @@ export function createStore(db) {
           stmt.upsertRule.run(m.id, m.help || null, m.description || null, m.helpUrl || null, JSON.stringify(m.tags || []));
         }
         for (const r of result.rules) {
-          stmt.insertRuleResult.run(scanId, pageId, r.id, r.outcome, r.impactRank || 0, r.nodes || 0);
+          stmt.insertRuleResult.run(scanId, pageId, r.id, r.outcome, r.impactRank || 0, r.nodes || 0, r.passed ?? null, r.failed ?? null);
         }
         for (const f of result.findings) {
           const print = fingerprint(f.ruleId, result.url, f.selector);

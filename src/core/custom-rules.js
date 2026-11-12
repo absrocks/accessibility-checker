@@ -52,6 +52,57 @@ export const CUSTOM_RULES = [
     tags: ['custom', 'wcag2a', 'wcag244'],
   },
   {
+    id: 'link-name-not-unique',
+    level: 'error',
+    impactRank: 3,
+    help: 'Links with the same name must go to the same place',
+    description:
+      'Two or more links have the same accessible name but different destinations. Someone listening to a list of links ' +
+      'cannot tell them apart. Give each one a name that says where it goes, for example with an aria-label that adds the section.',
+    helpUrl: 'https://www.w3.org/WAI/WCAG22/Understanding/link-purpose-in-context',
+    tags: ['custom', 'wcag2a', 'wcag244'],
+  },
+  {
+    id: 'link-label-in-name',
+    level: 'error',
+    impactRank: 1,
+    help: 'The visible text of a link must be part of its accessible name',
+    description:
+      'The link has an aria-label, and the text people can see is not contained in it exactly. People who use speech ' +
+      'input say what they see, so the accessible name should contain the visible text, including its punctuation.',
+    helpUrl: 'https://www.w3.org/WAI/WCAG22/Understanding/label-in-name',
+    tags: ['custom', 'wcag21a', 'wcag253'],
+  },
+  {
+    id: 'table-no-headers',
+    level: 'error',
+    impactRank: 1,
+    help: 'Tables must have header cells, or be marked as layout',
+    description:
+      'The table has no header cells and no caption. If it only arranges content, add role="presentation" so it is not ' +
+      'announced as a table. If it holds data, mark its headers with th elements.',
+    helpUrl: 'https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships',
+    tags: ['custom', 'wcag2a', 'wcag131'],
+  },
+  {
+    id: 'list-empty',
+    level: 'warning',
+    impactRank: 1,
+    help: 'Lists should contain list items',
+    description: 'A ul or ol element has no li children. It is announced as a list with nothing in it. Remove it, or check whether its items are added later by script.',
+    helpUrl: 'https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships',
+    tags: ['custom', 'wcag2a', 'wcag131'],
+  },
+  {
+    id: 'label-empty',
+    level: 'warning',
+    impactRank: 1,
+    help: 'Label elements should not be empty',
+    description: 'A label element has no text. If it labels a control, that control has no usable name from it; if it is only a click target, check that it is hidden from assistive technology.',
+    helpUrl: 'https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships',
+    tags: ['custom', 'wcag2a', 'wcag131'],
+  },
+  {
     id: 'link-name-generic',
     level: 'warning',
     impactRank: 2,
@@ -140,6 +191,60 @@ export function runCustomRulesInPage({ maxHtml }) {
       }
     }
 
+    // Links that share a name but not a destination, and links whose visible
+    // text is not inside their aria-label. Names are compared without case.
+    const norm = (text) => String(text || '').replace(/\s+/g, ' ').trim().toLowerCase();
+    const byName = new Map();
+    for (const link of document.querySelectorAll('a[href]')) {
+      if (!exposed(link)) continue;
+      const name = norm(axe.commons.text.accessibleText(link));
+      if (!name) continue;
+      count('link-name-not-unique');
+      if (!byName.has(name)) byName.set(name, []);
+      byName.get(name).push(link);
+
+      if (link.hasAttribute('aria-label') || link.hasAttribute('aria-labelledby')) {
+        const visible = norm(link.innerText);
+        if (visible) {
+          count('link-label-in-name');
+          if (!name.includes(visible)) {
+            flag('link-label-in-name', link, `The visible text "${visible}" is not found in the accessible name "${name}"`);
+          }
+        }
+      }
+    }
+    for (const [name, links] of byName) {
+      if (new Set(links.map((l) => l.href)).size < 2) continue;
+      for (const link of links) {
+        flag('link-name-not-unique', link, `Another link is also named "${name}" but goes somewhere else`);
+      }
+    }
+
+    // Table with no header cells: a layout table not marked as one, or a data table without headers.
+    for (const table of document.querySelectorAll('table')) {
+      const role = table.getAttribute('role');
+      if (role === 'presentation' || role === 'none' || !exposed(table)) continue;
+      count('table-no-headers');
+      if (!table.querySelector('th, caption, [scope], [headers], [role="columnheader"], [role="rowheader"]')) {
+        flag('table-no-headers', table, 'The table has no th cells and no caption');
+      }
+    }
+
+    // Empty lists and empty labels: usually leftovers, sometimes filled in by script.
+    for (const list of document.querySelectorAll('ul, ol')) {
+      const role = list.getAttribute('role');
+      if (role === 'presentation' || role === 'none' || !exposed(list)) continue;
+      count('list-empty');
+      if (!list.querySelector(':scope > li')) flag('list-empty', list, `This ${list.tagName.toUpperCase()} has no list items`);
+    }
+    for (const label of document.querySelectorAll('label')) {
+      if (!exposed(label)) continue;
+      count('label-empty');
+      if (!norm(axe.commons.text.accessibleText(label)) && !label.querySelector('input, select, textarea')) {
+        flag('label-empty', label, 'This label has no text');
+      }
+    }
+
     // Focusable element with no implicit or explicit role. Only elements put
     // in the tab order with tabindex are checked; elements that mean something
     // without an ARIA role, such as label and summary, are left alone.
@@ -170,11 +275,15 @@ export function shapeCustomResults({ examined, hits }) {
   for (const rule of CUSTOM_RULES) {
     const own = hits.filter((h) => h.rule === rule.id);
     const kind = rule.level === 'error' ? 'fail' : 'review';
+    const checked = examined[rule.id] || 0;
     rules.push({
       id: rule.id,
-      outcome: own.length ? kind : examined[rule.id] ? 'pass' : 'inapplicable',
+      outcome: own.length ? kind : checked ? 'pass' : 'inapplicable',
       impactRank: rule.impactRank,
       nodes: own.length,
+      // Elements that passed and failed, for the score.
+      passed: Math.max(0, checked - own.length),
+      failed: kind === 'fail' ? own.length : 0,
     });
     for (const h of own) {
       findings.push({ ruleId: rule.id, kind, impactRank: rule.impactRank, selector: h.selector, html: h.html, summary: h.detail });

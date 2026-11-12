@@ -80,11 +80,13 @@ test('crawls the fixture site and reports the known problems', { skip: !browserA
   }
 
   // Rules ported from the Docs CI script, which axe-core does not have.
-  for (const rule of ['aria-expanded-not-allowed', 'svg-accessible-name', 'link-name-suspicious', 'focusable-no-role']) {
+  for (const rule of ['aria-expanded-not-allowed', 'svg-accessible-name', 'link-name-suspicious', 'focusable-no-role',
+    'link-name-not-unique', 'link-label-in-name', 'table-no-headers']) {
     assert.ok(failed.includes(rule), `expected custom rule ${rule} to fail, got ${failed.join(', ')}`);
   }
   const outcome = (id) => body.rules.find((r) => r.rule_id === id);
-  assert.deepEqual(['link-name-generic', 'link-name-short'].map((id) => outcome(id)?.outcome), ['review', 'review']);
+  assert.deepEqual(['link-name-generic', 'link-name-short', 'list-empty', 'label-empty'].map((id) => outcome(id)?.outcome), ['review', 'review', 'review', 'review']);
+  assert.deepEqual([outcome('link-name-not-unique').open, outcome('link-label-in-name').open, outcome('table-no-headers').open], [2, 1, 1]);
   assert.deepEqual([outcome('aria-expanded-not-allowed').open, outcome('svg-accessible-name').open, outcome('link-name-suspicious').open], [1, 1, 1]);
   assert.equal(outcome('focusable-no-role').open, 1, 'the div is flagged; the focusable label is not');
   assert.equal(outcome('aria-expanded-not-allowed').custom, true);

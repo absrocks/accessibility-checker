@@ -22,6 +22,15 @@
     <div tabindex="0" role="region" aria-label="Notes">A focusable region with a role and a name</div>
     <div tabindex="-1">Focusable from script only</div>
     <p><a href="bad.html">Page with known problems</a></p>
+    <p>The same link twice is fine: <a href="bad.html">Page with known problems</a>.</p>
+    <p><a href="bad.html?again" aria-label="Open the page with known problems again">Page with known problems again</a></p>
+    <table>
+      <caption>A data table</caption>
+      <tr><th scope="col">Name</th><th scope="col">Value</th></tr>
+      <tr><td>one</td><td>two</td></tr>
+    </table>
+    <table role="presentation"><tr><td>layout</td></tr></table>
+    <ul><li>An item</li></ul>
   </main>
 </body>
 </html>
