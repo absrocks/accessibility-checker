@@ -184,22 +184,9 @@ test('custom rule results become pass, fail, review or inapplicable', () => {
     ],
   });
   const outcome = Object.fromEntries(shaped.rules.map((r) => [r.id, r.outcome]));
-  assert.deepEqual(outcome, {
-    'aria-expanded-not-allowed': 'fail',
-    'focusable-no-role': 'inapplicable',
-    'svg-accessible-name': 'inapplicable',
-    'link-name-suspicious': 'pass',
-    'link-name-not-unique': 'inapplicable',
-    'link-label-in-name': 'inapplicable',
-    'table-no-headers': 'inapplicable',
-    'iframe-width-absolute': 'inapplicable',
-    'iframe-height-absolute': 'inapplicable',
-    'list-empty': 'inapplicable',
-    'label-empty': 'inapplicable',
-    'contrast-translucent-background': 'inapplicable',
-    'link-name-generic': 'review',
-    'link-name-short': 'pass',
-  });
+  const expected = Object.fromEntries(CUSTOM_RULES.map((r) => [r.id, 'inapplicable']));
+  Object.assign(expected, { 'aria-expanded-not-allowed': 'fail', 'link-name-suspicious': 'pass', 'link-name-generic': 'review', 'link-name-short': 'pass' });
+  assert.deepEqual(outcome, expected);
   // Element counts feed the score: 3 checked, 1 flagged.
   const expanded = shaped.rules.find((r) => r.id === 'aria-expanded-not-allowed');
   assert.deepEqual([expanded.passed, expanded.failed], [2, 1]);

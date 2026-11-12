@@ -115,7 +115,13 @@ export function prepareHtml(html, pageUrl, scripts, headScripts = []) {
   for (const el of doc.querySelectorAll('script, base, meta[http-equiv="refresh" i]')) el.remove();
   for (const el of doc.querySelectorAll('*')) {
     for (const attr of [...el.attributes]) {
-      if (/^on/i.test(attr.name) || attr.name.toLowerCase() === 'srcdoc') el.removeAttribute(attr.name);
+      const name = attr.name.toLowerCase();
+      if (name === 'srcdoc') el.removeAttribute(attr.name);
+      else if (name.startsWith('on')) {
+        // Handlers must not run, but rules about mouse-only controls need to know they were there.
+        el.setAttribute(`data-checker-${name}`, attr.value);
+        el.removeAttribute(attr.name);
+      }
     }
   }
   // Sites that style a no-script state (class="no-js") would otherwise be

@@ -7,6 +7,7 @@ import { createServer } from 'node:http';
 import { dirname, extname, join, normalize } from 'node:path';
 import { after, before, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { CUSTOM_RULES } from '../src/core/custom-rules.js';
 import { openStore } from '../src/db.js';
 import { exportSite } from '../src/export.js';
 import { launchBrowser } from '../src/scanner.js';
@@ -101,6 +102,21 @@ test('scans listed pages in the browser and finds what the server scanner finds'
   assert.match(findings.items[0].summary, /Seen at: desktop, mobile$/, 'both viewports were scanned');
 });
 
+test('every custom rule fires in the browser too, including the ones that need handler attributes', { skip: !browser && 'no browser available' }, async () => {
+  const site = urlOf(openSite);
+  const detail = await scanAndWait({ urls: [`${site}/bad.html`, `${site}/bad2.html`, `${site}/good.html`], extraPages: 0 });
+  assert.equal(detail.scan.status, 'done', detail.scan.error);
+  const outcome = new Map(detail.rules.map((r) => [r.rule_id, r.outcome]));
+  for (const rule of CUSTOM_RULES) {
+    assert.equal(outcome.get(rule.id), rule.level === 'error' ? 'fail' : 'review', `${rule.id} on the bad fixtures`);
+  }
+  const good = detail.pages.find((p) => p.url.endsWith('/good.html'));
+  assert.deepEqual([good.fail_count, good.review_count, good.score], [0, 0, 85]);
+  // Handlers are shown under their real names even though the scan frame renamed them.
+  const clicks = await api(`/api/findings?scan=${detail.scan.id}&rule=click-without-keyboard`);
+  assert.match(clicks.items[0].html, /^<div onclick="window\.opened = true">/);
+});
+
 test('follows links on the same site when asked for extra pages', { skip: !browser && 'no browser available' }, async () => {
   const site = urlOf(openSite);
   const detail = await scanAndWait({ urls: [`${site}/bad.html`], extraPages: 1, viewport: 'desktop' });
@@ -139,7 +155,7 @@ test('a scanned page cannot run its own scripts or reach the checker', { skip: !
   assert.equal(await page.evaluate(() => window.hostileRan), undefined, 'the page reached the checker window');
   assert.equal(await page.evaluate(() => document.title.includes('pwned')), false);
   const findings = await api(`/api/findings?scan=${detail.scan.id}&limit=200`);
-  assert.ok(findings.items.every((f) => !/onerror|onclick/.test(f.html)), 'inline handlers were stripped before rendering');
+  assert.equal(await page.evaluate(() => window.opened), undefined, 'no handler from a scanned page ran in the checker');
 });
 
 test('keeps scans and changes across a reload, and resets on request', { skip: !browser && 'no browser available' }, async () => {

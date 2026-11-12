@@ -157,6 +157,93 @@ export const CUSTOM_RULES = [
   },
 ];
 
+// More rules, in a shorter form: id, level, severity rank, WCAG tags, the
+// "Understanding" page for the criterion, what to do, and why.
+const UNDERSTANDING = 'https://www.w3.org/WAI/WCAG22/Understanding/';
+const define = (id, level, impactRank, tags, page, help, description) =>
+  CUSTOM_RULES.push({ id, level, impactRank, help, description, helpUrl: UNDERSTANDING + page, tags: ['custom', ...tags] });
+
+// Names that say what kind of thing an element is, not what it is for.
+define('image-alt-suspicious', 'error', 4, ['wcag2a', 'wcag111'], 'non-text-content',
+  'Image alternative text must describe the image',
+  'The alt text is a file name or a placeholder word such as "image". It is read out as is and tells people nothing. Describe what the image shows, or use alt="" if it is decorative.');
+define('role-img-name-suspicious', 'error', 3, ['wcag2a', 'wcag111'], 'non-text-content',
+  'Elements with role img must have a name that describes them',
+  'The accessible name is a file name or a placeholder word such as "image" or "icon". Say what the graphic shows.');
+define('iframe-name-suspicious', 'error', 3, ['wcag2a', 'wcag412'], 'name-role-value',
+  'Iframe titles must describe the framed content',
+  'The iframe is named with a placeholder such as "frame" or "untitled". Give it a title that says what it contains, for example "Lecture recording: Intro to Slurm".');
+define('title-suspicious', 'error', 3, ['wcag2a', 'wcag242'], 'page-titled',
+  'The page title must describe the page',
+  'The title is a placeholder such as "Untitled" or a file name. The title is the first thing announced and what appears in tabs and history.');
+define('fieldset-name-suspicious', 'error', 3, ['wcag2a', 'wcag332'], 'labels-or-instructions',
+  'Fieldset legends must describe the group',
+  'The fieldset is named with a placeholder such as "fieldset" or "group". Say what the grouped controls are about.');
+define('input-text-name-suspicious', 'error', 3, ['wcag2a', 'wcag131', 'wcag412'], 'name-role-value',
+  'Text fields must have a name that says what to enter',
+  'The field is named with a placeholder such as "input" or "text field". Name it for what goes in it.');
+define('input-radio-name-suspicious', 'error', 3, ['wcag2a', 'wcag131', 'wcag412'], 'name-role-value',
+  'Radio buttons must have a name that says what they select',
+  'The radio button is named with a placeholder such as "radio" or "option". Name it for the choice it makes.');
+define('button-name-suspicious', 'error', 3, ['wcag2a', 'wcag412'], 'name-role-value',
+  'Buttons must have a name that says what they do',
+  'The button is named with a placeholder such as "button" or "click". Name it for its action.');
+define('dialog-name-suspicious', 'error', 3, ['wcag2a', 'wcag131', 'wcag242'], 'name-role-value',
+  'Dialogs must have a name that says what they are for',
+  'The dialog is named with a placeholder such as "dialog" or "popup". Name it for its purpose.');
+
+// Markup that does not do what it appears to.
+define('alt-not-allowed', 'error', 1, ['wcag2a', 'wcag131'], 'info-and-relationships',
+  'The alt attribute only works on images',
+  'An alt attribute was put on an element that is not an img, area or image input. It is ignored there. Use visible text or aria-label instead.');
+define('fieldset-name', 'error', 2, ['wcag2a', 'wcag131'], 'info-and-relationships',
+  'Fieldsets must have a legend',
+  'The fieldset has no legend and no aria-label, so the group is announced without a name. Add a legend as its first child.');
+define('aria-disabled-redundant', 'error', 1, ['wcag2a', 'wcag412'], 'name-role-value',
+  'Do not combine aria-disabled with the disabled attribute',
+  'The control has both disabled and aria-disabled. The native attribute already tells assistive technology; the two can disagree. Remove aria-disabled.');
+define('aria-owns-not-allowed', 'error', 2, ['wcag2a', 'wcag412'], 'name-role-value',
+  'aria-owns cannot be used on images or inputs',
+  'aria-owns makes other elements children of this one, but an img or input cannot have children. Remove it.');
+define('iframe-src-image', 'error', 2, ['wcag2a', 'wcag111'], 'non-text-content',
+  'Do not show images through an iframe',
+  'The iframe loads an image file. An image shown this way has no alternative text. Use an img element with alt.');
+define('dialog-empty', 'error', 2, ['wcag2a', 'wcag131', 'wcag412'], 'name-role-value',
+  'Dialogs must not be empty',
+  'An element with role dialog is exposed but has no content. Hide it until it is opened, or remove the role.');
+define('input-placeholder-name', 'error', 2, ['wcag2a', 'wcag131', 'wcag412'], 'labels-or-instructions',
+  'Fields must not rely on a placeholder for their name',
+  'The only thing naming this field is its placeholder, which disappears when someone types and is not exposed reliably. Add a label element or an aria-label.');
+define('nav-name', 'error', 1, ['wcag2a', 'wcag131'], 'info-and-relationships',
+  'When a page has several navigation regions, each needs a name',
+  'This nav has no aria-label or aria-labelledby, and the page has more than one. People moving between landmarks cannot tell them apart.');
+
+// Controls that only work with a mouse. Only handlers written as attributes
+// (onclick="...") can be seen; listeners added from script cannot.
+define('click-without-keyboard', 'error', 3, ['wcag2a', 'wcag211'], 'keyboard',
+  'Elements with a click handler must also work from the keyboard',
+  'The element has an onclick handler but no key handler, and it is not a native control. Use a button or link, or add a keydown handler for Enter and Space.');
+define('handler-without-tabindex', 'error', 3, ['wcag2a', 'wcag211'], 'keyboard',
+  'Elements with click or key handlers must be focusable',
+  'The element reacts to clicks or keys but cannot receive keyboard focus. Use a button or link, or add tabindex="0".');
+define('role-button-no-tabindex', 'error', 3, ['wcag2a', 'wcag412'], 'name-role-value',
+  'Elements with role button must be focusable',
+  'The element says it is a button but has no tabindex, so it cannot be reached with the keyboard. Use a button element, or add tabindex="0" and key handling.');
+define('link-no-href', 'error', 3, ['wcag2a', 'wcag211'], 'keyboard',
+  'Links that do something must be focusable',
+  'This a element acts as a link or button but has no href and no tabindex, so it is not in the focus order. Give it an href, or use a button.');
+
+// Worth a look; not necessarily wrong.
+define('role-application', 'warning', 1, ['wcag2a', 'wcag412'], 'name-role-value',
+  'Check that role application is really needed',
+  'role="application" turns off the screen reader\'s normal reading keys inside the element. It is rarely the right choice for web content.');
+define('link-to-image', 'warning', 1, ['wcag2a', 'wcag111'], 'non-text-content',
+  'Check links that open an image file',
+  'The link goes straight to an image file, which opens with no alternative text. Check that the same information is available as text.');
+define('lang-region', 'warning', 1, ['wcag2a', 'wcag311'], 'language-of-page',
+  'Check the page language value',
+  'The lang attribute has extra parts after the language, such as a region or a private-use tag. Some assistive technology only understands the simple form, for example "en".');
+
 /**
  * Runs inside the page, after axe-core has been injected. Returns, per rule,
  * how many elements were examined and the elements that were flagged.
@@ -168,8 +255,10 @@ export function runCustomRulesInPage({ maxHtml }) {
   const examined = {};
   const hits = [];
   const count = (rule) => { examined[rule] = (examined[rule] || 0) + 1; };
+  // The in-browser scanner renames handler attributes (onclick -> data-checker-onclick) so they
+  // cannot run; findings show them under their real names.
   const flag = (rule, el, detail) =>
-    hits.push({ rule, selector: axe.utils.getSelector(el), html: el.outerHTML.replace(/\s+/g, ' ').slice(0, maxHtml), detail });
+    hits.push({ rule, selector: axe.utils.getSelector(el), html: el.outerHTML.replace(/\s+/g, ' ').replace(/data-checker-(on[a-z]+=)/g, '$1').slice(0, maxHtml), detail });
 
   axe.setup();
   try {
@@ -335,6 +424,149 @@ export function runCustomRulesInPage({ maxHtml }) {
         flag('contrast-translucent-background', el,
           `Text colour ${hex(text)} against the nearest solid background ${hex(solid || white)} is ${ratio.toFixed(2)}:1; a semi-transparent background in between is not counted`);
       }
+    }
+
+    // ---- names that say what kind of thing an element is ----
+    const nameOf = (el) => norm(axe.commons.text.accessibleText(el));
+    const fileName = (text) => /\.(jpe?g|png|gif|svg|webp|bmp|tiff?|ico)$/i.test(text);
+    const placeholderName = (rule, selector, words, alsoFileNames = false) => {
+      const set = new Set(words);
+      for (const el of document.querySelectorAll(selector)) {
+        if (!exposed(el)) continue;
+        const name = nameOf(el);
+        if (!name) continue; // a missing name is another rule's finding
+        count(rule);
+        if (set.has(name)) flag(rule, el, `The name is "${name}", which says what the element is, not what it is for`);
+        else if (alsoFileNames && fileName(name)) flag(rule, el, `The name is "${name}", which is a file name`);
+      }
+    };
+    const pictureWords = ['image', 'img', 'picture', 'photo', 'graphic', 'icon', 'alt', 'alt text', 'spacer', 'placeholder', 'untitled', 'null', 'undefined'];
+    placeholderName('image-alt-suspicious', 'img[alt]', pictureWords, true);
+    placeholderName('role-img-name-suspicious', '[role="img"]:not(img), [role="graphics-document"], [role="graphics-symbol"], [role="graphics-object"]', pictureWords, true);
+    placeholderName('iframe-name-suspicious', 'iframe', ['frame', 'iframe', 'untitled', 'embed', 'embedded content', 'content', 'window']);
+    placeholderName('fieldset-name-suspicious', 'fieldset', ['fieldset', 'field set', 'group', 'legend']);
+    placeholderName('input-text-name-suspicious',
+      'textarea, input:not([type]), input[type="text"], input[type="search"], input[type="email"], input[type="tel"], input[type="url"], input[type="password"], input[type="number"]',
+      ['input', 'text', 'textbox', 'text box', 'text field', 'textfield', 'field', 'edit', 'edit text', 'textarea', 'enter text', 'type here']);
+    placeholderName('input-radio-name-suspicious', 'input[type="radio"]', ['radio', 'radio button', 'radiobutton', 'option', 'radio option']);
+    placeholderName('button-name-suspicious', 'button, input[type="button"], input[type="submit"], input[type="reset"], [role="button"]',
+      ['button', 'btn', 'click', 'click here', 'press', 'push']);
+    placeholderName('dialog-name-suspicious', '[role="dialog"], [role="alertdialog"], dialog[open]',
+      ['dialog', 'dialogue', 'modal', 'popup', 'pop-up', 'pop up', 'window', 'lightbox', 'overlay']);
+
+    const titleEl = document.querySelector('title');
+    const title = norm(document.title);
+    if (title) {
+      count('title-suspicious');
+      if (['untitled', 'untitled document', 'untitled page', 'title', 'document', 'page', 'new page', 'new tab', 'index', 'default', 'test'].includes(title) ||
+          /\.(html?|php|aspx?|jsp)$/i.test(title)) {
+        flag('title-suspicious', titleEl || document.documentElement, `The page title is "${title}"`);
+      }
+    }
+
+    // ---- markup that does not do what it appears to ----
+    for (const el of document.querySelectorAll('[alt]')) {
+      const tag = el.tagName.toLowerCase();
+      if (tag === 'img' || tag === 'area' || tag === 'applet' || (tag === 'input' && el.getAttribute('type') === 'image')) continue;
+      if (!exposed(el)) continue;
+      count('alt-not-allowed');
+      flag('alt-not-allowed', el, `This ${tag.toUpperCase()} has an alt attribute, which has no effect here`);
+    }
+    for (const el of document.querySelectorAll('fieldset')) {
+      if (!exposed(el)) continue;
+      count('fieldset-name');
+      if (!nameOf(el)) flag('fieldset-name', el, 'This fieldset has no legend and no aria-label');
+    }
+    for (const el of document.querySelectorAll('button[aria-disabled], input[aria-disabled], select[aria-disabled], textarea[aria-disabled], fieldset[aria-disabled], option[aria-disabled]')) {
+      count('aria-disabled-redundant');
+      if (el.hasAttribute('disabled')) flag('aria-disabled-redundant', el, `The element is disabled and also has aria-disabled="${el.getAttribute('aria-disabled')}"`);
+    }
+    for (const el of document.querySelectorAll('img, input')) {
+      if (!exposed(el)) continue;
+      count('aria-owns-not-allowed');
+      if (el.hasAttribute('aria-owns')) flag('aria-owns-not-allowed', el, `This ${el.tagName.toUpperCase()} has aria-owns but cannot own other elements`);
+    }
+    for (const el of document.querySelectorAll('iframe[src]')) {
+      if (!exposed(el)) continue;
+      count('iframe-src-image');
+      if (fileName((el.getAttribute('src') || '').split(/[?#]/)[0])) flag('iframe-src-image', el, 'The iframe loads an image file');
+    }
+    for (const el of document.querySelectorAll('[role="dialog"], [role="alertdialog"]')) {
+      if (!exposed(el)) continue;
+      count('dialog-empty');
+      if (!norm(el.textContent) && !el.querySelector('img, svg, input, button, select, textarea, a[href], iframe, video, audio, canvas')) {
+        flag('dialog-empty', el, 'This dialog is exposed to assistive technology but has nothing in it');
+      }
+    }
+    for (const el of document.querySelectorAll('textarea[placeholder], input[placeholder]')) {
+      const type = (el.getAttribute('type') || 'text').toLowerCase();
+      if (['hidden', 'button', 'submit', 'reset', 'image', 'checkbox', 'radio', 'file', 'range', 'color'].includes(type) || !exposed(el)) continue;
+      count('input-placeholder-name');
+      const labelled =
+        norm(el.getAttribute('aria-label')) || el.hasAttribute('aria-labelledby') || norm(el.getAttribute('title')) ||
+        norm(el.closest('label')?.textContent) ||
+        (el.id && [...document.querySelectorAll('label[for]')].some((l) => l.getAttribute('for') === el.id && norm(l.textContent)));
+      if (!labelled) flag('input-placeholder-name', el, `The only name for this field is its placeholder, "${norm(el.getAttribute('placeholder'))}"`);
+    }
+    const navs = [...document.querySelectorAll('nav, [role="navigation"]')].filter(exposed);
+    if (navs.length > 1) {
+      for (const el of navs) {
+        count('nav-name');
+        if (!norm(el.getAttribute('aria-label')) && !el.hasAttribute('aria-labelledby') && !norm(el.getAttribute('title'))) {
+          flag('nav-name', el, `This is one of ${navs.length} navigation regions on the page and it has no name`);
+        }
+      }
+    }
+
+    // ---- controls that only work with a mouse ----
+    const has = (el, name) => el.hasAttribute(name) || el.hasAttribute(`data-checker-${name}`);
+    const hasClick = (el) => has(el, 'onclick');
+    const hasKey = (el) => has(el, 'onkeydown') || has(el, 'onkeyup') || has(el, 'onkeypress');
+    const nativeControl = (el) => {
+      const tag = el.tagName.toLowerCase();
+      return ['button', 'input', 'select', 'textarea', 'summary', 'option', 'label', 'html', 'body'].includes(tag) ||
+        ((tag === 'a' || tag === 'area') && el.hasAttribute('href'));
+    };
+    const handlerSelector = ['onclick', 'onkeydown', 'onkeyup', 'onkeypress'].flatMap((n) => [`[${n}]`, `[data-checker-${n}]`]).join(', ');
+    for (const el of document.querySelectorAll(handlerSelector)) {
+      if (nativeControl(el) || !exposed(el)) continue;
+      const isAnchor = el.tagName.toLowerCase() === 'a'; // anchors are link-no-href's finding
+      if (hasClick(el)) {
+        count('click-without-keyboard');
+        if (!hasKey(el)) flag('click-without-keyboard', el, 'The element has an onclick handler and no key handler');
+      }
+      if (!isAnchor) {
+        count('handler-without-tabindex');
+        if (!el.hasAttribute('tabindex')) flag('handler-without-tabindex', el, 'The element has a click or key handler but no tabindex, so it cannot be focused');
+      }
+    }
+    for (const el of document.querySelectorAll('[role="button"]')) {
+      if (nativeControl(el) || !exposed(el)) continue;
+      count('role-button-no-tabindex');
+      if (!el.hasAttribute('tabindex')) flag('role-button-no-tabindex', el, 'This element has role button but no tabindex');
+    }
+    for (const el of document.querySelectorAll('a:not([href])')) {
+      const role = el.getAttribute('role');
+      if (!(hasClick(el) || role === 'link' || role === 'button') || !exposed(el)) continue;
+      count('link-no-href');
+      if (!(parseInt(el.getAttribute('tabindex'), 10) >= 0)) flag('link-no-href', el, 'This link acts on click but has no href and no tabindex');
+    }
+
+    // ---- worth a look ----
+    for (const el of document.querySelectorAll('[role="application"]')) {
+      if (!exposed(el)) continue;
+      count('role-application');
+      flag('role-application', el, 'This element has role application');
+    }
+    for (const el of document.querySelectorAll('a[href]')) {
+      if (!exposed(el)) continue;
+      count('link-to-image');
+      if (fileName((el.getAttribute('href') || '').split(/[?#]/)[0])) flag('link-to-image', el, 'This link opens an image file');
+    }
+    const lang = (document.documentElement.getAttribute('lang') || '').trim();
+    if (lang) {
+      count('lang-region');
+      if (lang.includes('-')) flag('lang-region', document.documentElement, `The page language is "${lang}"`);
     }
 
     // Focusable element with no implicit or explicit role. Only elements put

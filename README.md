@@ -2,7 +2,7 @@
 
 A local web app that scans web pages for accessibility problems and tracks the
 findings over time. It loads each page in headless Chrome, evaluates it with
-[axe-core](https://github.com/dequelabs/axe-core) plus fourteen custom rules, and
+[axe-core](https://github.com/dequelabs/axe-core) plus 38 custom rules, and
 stores the results in a SQLite file.
 
 ## Run it
@@ -102,6 +102,41 @@ from the Docs site's CI script (`.github/scripts/a11y-check.cjs`).
 | `list-empty` | Needs review | 1.3.1 | A `ul` or `ol` with no `li` children |
 | `label-empty` | Needs review | 1.3.1 | A `label` with no text |
 
+The remaining rules cover the rest of what Level Access checks on this site.
+They pass on the HPC pages today, so they change no current score there.
+
+| Rule | Recorded as | Criterion | What it flags |
+|---|---|---|---|
+| `image-alt-suspicious` | Failed, critical | 1.1.1 | Alt text that is a file name or a word like "image" |
+| `role-img-name-suspicious` | Failed, serious | 1.1.1 | The same, on elements with `role="img"` |
+| `iframe-name-suspicious` | Failed, serious | 4.1.2 | An iframe titled "frame", "untitled" and similar |
+| `title-suspicious` | Failed, serious | 2.4.2 | A page title such as "Untitled" or a file name |
+| `fieldset-name-suspicious` | Failed, serious | 3.3.2 | A legend such as "fieldset" or "group" |
+| `input-text-name-suspicious` | Failed, serious | 4.1.2 | A text field named "input", "text field" and similar |
+| `input-radio-name-suspicious` | Failed, serious | 4.1.2 | A radio button named "radio" or "option" |
+| `button-name-suspicious` | Failed, serious | 4.1.2 | A button named "button" or "click" |
+| `dialog-name-suspicious` | Failed, serious | 2.4.2 | A dialog named "dialog", "popup" and similar |
+| `click-without-keyboard` | Failed, serious | 2.1.1 | An `onclick` attribute with no key handler on a non-control |
+| `handler-without-tabindex` | Failed, serious | 2.1.1 | Click or key handler attributes on an element that cannot be focused |
+| `role-button-no-tabindex` | Failed, serious | 4.1.2 | `role="button"` with no `tabindex` |
+| `link-no-href` | Failed, serious | 2.1.1 | An `a` that acts on click but has no `href` or `tabindex` |
+| `fieldset-name` | Failed, moderate | 1.3.1 | A fieldset with no legend or label |
+| `input-placeholder-name` | Failed, moderate | 4.1.2 | A field whose only name is its placeholder |
+| `aria-owns-not-allowed` | Failed, moderate | 4.1.2 | `aria-owns` on an `img` or `input` |
+| `iframe-src-image` | Failed, moderate | 1.1.1 | An iframe that loads an image file |
+| `dialog-empty` | Failed, moderate | 4.1.2 | An exposed dialog with nothing in it |
+| `alt-not-allowed` | Failed, minor | 1.3.1 | An `alt` attribute on something that is not an image |
+| `aria-disabled-redundant` | Failed, minor | 4.1.2 | `aria-disabled` together with `disabled` |
+| `nav-name` | Failed, minor | 1.3.1 | An unnamed `nav` on a page with more than one |
+| `role-application` | Needs review | 4.1.2 | Any use of `role="application"` |
+| `link-to-image` | Needs review | 1.1.1 | A link that opens an image file |
+| `lang-region` | Needs review | 3.1.1 | A page language with a region or private-use part |
+
+Two limits of these. The "suspicious name" rules compare the name with a short
+list of placeholder words (and, for images, file names); Level Access's own
+lists are not public. The mouse-only rules see handlers written as attributes
+(`onclick="..."`), not listeners added from script.
+
 The rules skip elements hidden from screen readers. A responsive site hides
 different elements at each width, which is why scanning at both viewports
 matters: on one documentation page, 1 of 28 `nav[aria-expanded]` elements is
@@ -111,10 +146,11 @@ exposed at desktop width and all 28 at mobile width.
 
 `docs/level-access-coverage.md` lists every rule Access Engine reported on a
 scan of this site (113 of them) and what this checker reports for an example
-of each: 68 are caught, 7 only with best practices on, 12 are flagged for
-review only, and 26 are not caught. Regenerate it with
-`node scripts/level-access-coverage.mjs`. The rules that have actually failed
-on the HPC pages are all covered; the gaps are among rules those pages pass.
+of each: 91 are caught, 7 only with best practices on, 15 are flagged for
+review only, and none is missed. Regenerate it with
+`node scripts/level-access-coverage.mjs`. The examples are written from the
+rule names, so this shows that each kind of problem is detected, not that the
+two tools agree on every page.
 
 On `https://hpc.njit.edu/MIG/` (11 Nov 2026) Access Engine and this checker
 report the same findings and the same score:

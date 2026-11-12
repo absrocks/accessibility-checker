@@ -5,6 +5,7 @@ import { createServer } from 'node:http';
 import { dirname, join } from 'node:path';
 import { after, before, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { CUSTOM_RULES } from '../src/core/custom-rules.js';
 import { openStore } from '../src/db.js';
 import { createQueue } from '../src/core/jobs.js';
 import { crawlAndScan, launchBrowser } from '../src/scanner.js';
@@ -166,4 +167,20 @@ test('scans a page whose third-party stylesheet did not load, and says so', { sk
   assert.equal(blocked.score, 85);
   assert.match(blocked.note, /^Scanned without a stylesheet from 127\.0\.0\.1:9, which did not load\./);
   assert.equal(good.note, null, 'a page that loaded everything has no note');
+});
+
+test('every custom rule fires on the bad fixtures and none fires on the good one', { skip: !browserAvailable && 'no browser available' }, async () => {
+  const created = await post('/api/scans', { urls: [`${siteUrl}/bad.html`, `${siteUrl}/bad2.html`, `${siteUrl}/good.html`], extraPages: 0 });
+  await queue.whenIdle();
+  const { body } = await call(`/api/scans/${created.body.id}`);
+  assert.equal(body.scan.status, 'done', body.scan.error);
+
+  const outcome = new Map(body.rules.map((r) => [r.rule_id, r.outcome]));
+  for (const rule of CUSTOM_RULES) {
+    assert.equal(outcome.get(rule.id), rule.level === 'error' ? 'fail' : 'review', `${rule.id} on the bad fixtures`);
+  }
+  const good = body.pages.find((p) => p.url.endsWith('/good.html'));
+  const onGood = (await call(`/api/findings?scan=${created.body.id}&page=${good.id}&limit=200`)).body.items;
+  assert.deepEqual(onGood.map((f) => `${f.rule_id}: ${f.selector}`), [], 'the good page must have no findings at all');
+  assert.equal(good.score, 85);
 });

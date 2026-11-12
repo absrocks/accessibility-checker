@@ -27,6 +27,34 @@
     <table><tr><td>one</td><td>two</td></tr></table>
     <ul class="leftover"></ul>
     <label class="overlay"></label>
+
+    <!-- names that say what the element is, not what it is for -->
+    <img src="data:image/gif;base64,R0lGODlhAQABAAAAACw=" width="40" height="40" alt="chart-final-v2.png">
+    <div role="img" aria-label="image" style="width: 40px; height: 40px"></div>
+    <iframe title="frame" src="about:blank" style="width: 100%; height: 4rem"></iframe>
+    <fieldset><legend>fieldset</legend><input type="radio" name="g1" id="g1"><label for="g1">radio</label></fieldset>
+    <input type="text" aria-label="text field">
+    <button type="button">button</button>
+    <div role="dialog" aria-label="popup"><p>A dialog with a placeholder name.</p></div>
+
+    <!-- markup that does not do what it appears to -->
+    <div alt="A description nobody will hear">A div with an alt attribute</div>
+    <fieldset><input type="checkbox" id="c1"><label for="c1">A checkbox in an unnamed group</label></fieldset>
+    <button type="button" disabled aria-disabled="false">Disabled twice over</button>
+    <img src="data:image/gif;base64,R0lGODlhAQABAAAAACw=" width="40" height="40" alt="A chart of scan results" aria-owns="owned"><span id="owned">Owned text</span>
+    <iframe title="Results chart" src="results.png" style="width: 100%; height: 4rem"></iframe>
+    <div role="dialog" aria-label="Preferences"></div>
+    <input type="text" placeholder="Your name">
+    <nav><a href="good.html?nav">An unnamed second navigation region</a></nav>
+
+    <!-- controls that only work with a mouse -->
+    <div onclick="window.opened = true">A div that only responds to clicks</div>
+    <span role="button" aria-label="Expand the section">+</span>
+    <a onclick="window.opened = true">A link with no address</a>
+
+    <!-- worth a look -->
+    <div role="application" aria-label="Spreadsheet editor"><p>Application region.</p></div>
+    <p><a href="diagram.png">Architecture diagram</a></p>
     <iframe title="An embedded page" src="about:blank" width="320" height="180"></iframe>
     <div style="background: rgba(0, 0, 0, 0.87); color: #ffffff; padding: 4px">White text on a see-through dark panel</div>
     <label for="q" tabindex="0">A focusable label, which is not flagged</label>

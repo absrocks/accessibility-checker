@@ -113,7 +113,7 @@ test('the published copy answers every read exactly as the live server does', as
   }
   const csv = await hosted.handle('GET', '/api/findings.csv?status=dismissed');
   assert.equal(csv.text, await (await fetch(`${liveUrl}/api/findings.csv?status=dismissed`)).text());
-  assert.equal((await hosted.get('/api/config')).engine, 'axe-core test + 14 custom rules, run in the browser');
+  assert.equal((await hosted.get('/api/config')).engine, 'axe-core test + 38 custom rules, run in the browser');
 });
 
 test('the published copy can scan, dismiss and remove, and survives being saved and reopened', async () => {
@@ -126,7 +126,7 @@ test('the published copy can scan, dismiss and remove, and survives being saved 
   await queue.whenIdle();
   const detail = (await handle('GET', `/api/scans/${created.json.id}`)).json;
   assert.deepEqual([detail.scan.status, detail.scan.score, detail.pages.length], ['done', 70, 2]);
-  assert.equal(detail.scan.engine, 'axe-core test + 14 custom rules, run in the browser');
+  assert.equal(detail.scan.engine, 'axe-core test + 38 custom rules, run in the browser');
 
   const mine = (await handle('GET', `/api/findings?scan=${created.json.id}`)).json;
   assert.equal(mine.total, 5);

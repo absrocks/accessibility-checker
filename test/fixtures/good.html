@@ -31,6 +31,22 @@
     </table>
     <table role="presentation"><tr><td>layout</td></tr></table>
     <ul><li>An item</li></ul>
+
+    <!-- the well-formed counterparts of everything in bad.html -->
+    <div role="img" aria-label="Bar chart of failed findings by rule" style="width: 40px; height: 40px"></div>
+    <fieldset>
+      <legend>Choose a size</legend>
+      <input type="radio" name="size" id="size-s"><label for="size-s">Small</label>
+      <input type="radio" name="size" id="size-l"><label for="size-l">Large</label>
+    </fieldset>
+    <label for="email">Email address</label>
+    <input id="email" type="text" placeholder="name@example.com">
+    <button type="button" disabled>Save changes</button>
+    <div role="dialog" aria-label="Preferences"><p>Choose how results are shown.</p></div>
+    <nav aria-label="Section"><a href="bad.html?section" style="display: inline-block; padding: 8px 0">Section contents</a></nav>
+    <nav aria-label="Related"><a href="bad.html?related" style="display: inline-block; padding: 8px 0">Related pages</a></nav>
+    <div role="button" tabindex="0" onclick="window.opened = true" onkeydown="window.opened = true">Open the panel</div>
+    <a id="anchor-target"></a>
     <iframe title="An embedded page" src="about:blank" width="100%" style="height: 12rem"></iframe>
     <div style="background: #222222; color: #ffffff; padding: 4px">White text on a solid dark panel</div>
     <div style="background: rgba(0, 0, 0, 0.05); color: #111111; padding: 4px">Dark text on a faint see-through tint</div>
