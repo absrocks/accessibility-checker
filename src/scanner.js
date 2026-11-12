@@ -8,7 +8,8 @@ import { chromium } from 'playwright-core';
 import { runCustomRulesInPage } from './core/custom-rules.js';
 import {
   DEVICES, MAX_HTML, axeRunOptions, combineResults, crawl, devicesFor, engineLabel,
-  mergeViewportResults, runAxeInPage, tagsFor,
+  mergeViewportResults, runAxeInPage, stylesMissingMessage, tagsFor, trackStylesheetErrorsInPage,
+  unloadedStylesheetsInPage,
 } from './core/engine.js';
 
 const require = createRequire(import.meta.url);
@@ -85,6 +86,14 @@ export async function scanPage(context, url, { tags }) {
     const type = response?.headers()['content-type'] || '';
     if (type && !/html/i.test(type)) throw new Error(`Not an HTML page (${type.split(';')[0]})`);
     await page.waitForLoadState('networkidle', { timeout: SETTLE_TIMEOUT_MS }).catch(() => {});
+    // A stylesheet lost to a dropped connection leaves the page unstyled; load it again once.
+    let missing = await page.evaluate(unloadedStylesheetsInPage);
+    if (missing.length) {
+      await page.reload({ waitUntil: 'load', timeout: NAV_TIMEOUT_MS });
+      await page.waitForLoadState('networkidle', { timeout: SETTLE_TIMEOUT_MS }).catch(() => {});
+      missing = await page.evaluate(unloadedStylesheetsInPage);
+      if (missing.length) throw new Error(stylesMissingMessage(missing));
+    }
     // Finish any fade or slide at once, so colours are not measured mid-animation.
     await page.addStyleTag({ content: '*, *::before, *::after { transition: none !important; animation: none !important; }' });
     await page.addScriptTag({ content: axeSource });
@@ -106,7 +115,9 @@ export async function crawlAndScan(scan, onPage) {
     const contexts = [];
     for (const name of devices) {
       // bypassCSP lets the checker inject axe on sites with a strict script policy.
-      contexts.push(await browser.newContext({ ...DEVICES[name], bypassCSP: true, reducedMotion: 'reduce' }));
+      const context = await browser.newContext({ ...DEVICES[name], bypassCSP: true, reducedMotion: 'reduce' });
+      await context.addInitScript(trackStylesheetErrorsInPage); // before each page's own content
+      contexts.push(context);
     }
     await crawl(scan, async (url) => {
       const perViewport = [];

@@ -118,6 +118,12 @@ test('says plainly when a site does not allow itself to be read', { skip: !brows
   assert.match(gone.scan.error, /could not be reached/);
 });
 
+test('refuses to report on a page whose styles did not load', { skip: !browser && 'no browser available' }, async () => {
+  const detail = await scanAndWait({ urls: [`${urlOf(openSite)}/nostyle.html`], viewport: 'desktop' });
+  assert.equal(detail.scan.status, 'failed');
+  assert.match(detail.scan.error, /styles did not load \(http:\/\/127\.0\.0\.1:9\/missing\.css\)/);
+});
+
 test('a scanned page cannot run its own scripts or reach the checker', { skip: !browser && 'no browser available' }, async () => {
   const site = urlOf(openSite);
   const detail = await scanAndWait({ urls: [`${site}/hostile.html`], viewport: 'desktop' });

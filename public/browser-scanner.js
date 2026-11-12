@@ -16,14 +16,15 @@
 import { runCustomRulesInPage } from './lib/custom-rules.js';
 import {
   DEVICES, MAX_HTML, axeRunOptions, combineResults, crawl, devicesFor,
-  mergeViewportResults, runAxeInPage, tagsFor,
+  mergeViewportResults, runAxeInPage, stylesMissingMessage, tagsFor, trackStylesheetErrorsInPage,
+  unloadedStylesheetsInPage,
 } from './lib/engine.js';
 
 const SCAN_TIMEOUT_MS = 60_000;
 
 /** Runs inside the frame, after axe-core. Self-contained: sent as source text. */
 /* c8 ignore start */
-function frameMain(id, runOptions, maxHtml, runAxe, runCustom) {
+function frameMain(id, runOptions, maxHtml, runAxe, runCustom, unloadedStylesheets) {
   let started = false;
   const reply = (payload) => window.parent.postMessage({ checkerScan: id, ...payload }, '*');
   const run = async () => {
@@ -31,6 +32,8 @@ function frameMain(id, runOptions, maxHtml, runAxe, runCustom) {
     started = true;
     try {
       if (!window.axe) throw new Error('axe-core did not start in the page');
+      const missing = unloadedStylesheets();
+      if (missing.length) return reply({ ok: false, stylesMissing: missing });
       if (document.fonts && document.fonts.ready) {
         await Promise.race([document.fonts.ready, new Promise((r) => setTimeout(r, 3000))]);
       }
@@ -97,9 +100,10 @@ async function fetchPage(url) {
 /**
  * Turn fetched HTML into a document that can be rendered safely and scanned:
  * no scripts of its own, relative addresses resolved against where it came
- * from, and the checker's two scripts added at the end.
+ * from, the checker's rules added at the end, and `headScripts` placed
+ * before anything else in the head so they run before the page's links load.
  */
-export function prepareHtml(html, pageUrl, scripts) {
+export function prepareHtml(html, pageUrl, scripts, headScripts = []) {
   const doc = new DOMParser().parseFromString(html, 'text/html');
   const declared = doc.querySelector('base[href]')?.getAttribute('href');
   let base = pageUrl;
@@ -121,11 +125,17 @@ export function prepareHtml(html, pageUrl, scripts) {
   const baseEl = doc.createElement('base');
   baseEl.setAttribute('href', base);
   doc.head.prepend(baseEl);
+  // A marker element, swapped for script tags after serializing (the parser would not run scripts added here).
+  const marker = doc.createElement('meta');
+  marker.setAttribute('name', 'checker-head-scripts');
+  baseEl.after(marker);
 
-  const tags = scripts.map((src) => `<script src="${src}"></script>`).join('');
-  const out = `<!doctype html>${root.outerHTML}`;
+  const tag = (src) => `<script src="${src}"></script>`;
+  let out = `<!doctype html>${root.outerHTML}`.replace(marker.outerHTML, headScripts.map(tag).join(''));
+  const tags = scripts.map(tag).join('');
   const end = out.lastIndexOf('</body>');
-  return end === -1 ? out + tags : out.slice(0, end) + tags + out.slice(end);
+  out = end === -1 ? out + tags : out.slice(0, end) + tags + out.slice(end);
+  return out;
 }
 
 let scanCounter = 0;
@@ -137,7 +147,7 @@ function scanInFrame(page, deviceName, tags, axeSource) {
     const { width, height } = DEVICES[deviceName].viewport;
     const runner =
       `${axeSource}\n;(${frameMain.toString()})(${JSON.stringify(id)}, ${JSON.stringify(axeRunOptions(tags))}, ${MAX_HTML}, ` +
-      `${runAxeInPage.toString()}, ${runCustomRulesInPage.toString()});`;
+      `${runAxeInPage.toString()}, ${runCustomRulesInPage.toString()}, ${unloadedStylesheetsInPage.toString()});`;
 
     const frame = document.createElement('iframe');
     // allow-scripts only: the frame gets a throwaway origin and cannot reach this page.
@@ -158,12 +168,15 @@ function scanInFrame(page, deviceName, tags, axeSource) {
     const onMessage = (event) => {
       if (event.source !== frame.contentWindow || event.data?.checkerScan !== id) return;
       if (event.data.ok) finish(resolve, combineResults(event.data.axeResult, event.data.customRaw, page.url));
+      else if (event.data.stylesMissing) finish(reject, Object.assign(new Error(stylesMissingMessage(event.data.stylesMissing)), { stylesMissing: true }));
       else finish(reject, new Error(`The page could not be evaluated: ${event.data.error}`));
     };
     const timer = setTimeout(() => finish(reject, new Error('The page took too long to load and evaluate')), SCAN_TIMEOUT_MS);
     window.addEventListener('message', onMessage);
 
-    frame.srcdoc = prepareHtml(page.html, page.url, [`data:text/javascript;base64,${toBase64(runner)}`]);
+    frame.srcdoc = prepareHtml(page.html, page.url,
+      [`data:text/javascript;base64,${toBase64(runner)}`],
+      [`data:text/javascript;base64,${toBase64(`(${trackStylesheetErrorsInPage.toString()})();`)}`]);
     document.body.append(frame);
   });
 }
@@ -191,7 +204,16 @@ export function createBrowserScanner({ axeUrl }) {
     await crawl(scan, async (url) => {
       const page = await fetchPage(url);
       const perViewport = [];
-      for (const device of devices) perViewport.push(await scanInFrame(page, device, tags, axeSource));
+      for (const device of devices) {
+        try {
+          perViewport.push(await scanInFrame(page, device, tags, axeSource));
+        } catch (e) {
+          // A stylesheet lost to a dropped connection leaves the page unstyled; render it again once.
+          if (!e.stylesMissing) throw e;
+          await pause(800);
+          perViewport.push(await scanInFrame(page, device, tags, axeSource));
+        }
+      }
       return mergeViewportResults(perViewport, devices);
     }, onPage);
   };

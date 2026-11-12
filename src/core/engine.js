@@ -110,6 +110,34 @@ export async function runAxeInPage({ runOptions, maxHtml }) {
 }
 /* c8 ignore stop */
 
+/**
+ * A page checked without its styles gives wrong results (everything visible,
+ * tiny targets, no colours), so scanners retry and then refuse instead of
+ * reporting them. A failed stylesheet cannot be seen afterwards, so the
+ * first function must run before the page's links load: it records each
+ * stylesheet that fails. The second returns what was recorded. Both run
+ * inside the page and are self-contained.
+ */
+/* c8 ignore start */
+export function trackStylesheetErrorsInPage() {
+  window.__checkerFailedStyles = [];
+  document.addEventListener('error', (event) => {
+    const el = event.target;
+    if (el && el.tagName === 'LINK' && /stylesheet/i.test(el.rel || '') && !/alternate/i.test(el.rel || '')) {
+      window.__checkerFailedStyles.push(el.href);
+    }
+  }, true); // load errors do not bubble; capture them on the way down
+}
+
+export function unloadedStylesheetsInPage() {
+  return Array.from(new Set(window.__checkerFailedStyles || []));
+}
+/* c8 ignore stop */
+
+/** The message for a page whose styles could not be loaded. */
+export const stylesMissingMessage = (hrefs) =>
+  `The page's styles did not load (${hrefs[0]}${hrefs.length > 1 ? ` and ${hrefs.length - 1} more` : ''}), so the results would be wrong. Check your connection and run the scan again.`;
+
 /** Join axe-core's results for one page view with the custom rules' results. */
 export function combineResults(axeResult, customRaw, url) {
   const custom = shapeCustomResults(customRaw);

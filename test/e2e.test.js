@@ -147,3 +147,11 @@ test('scans exactly the pages that were listed, and removing the scan removes it
   assert.equal((await call(`/api/scans/${created.body.id}`)).status, 404);
   assert.equal((await call('/api/findings?limit=1')).body.total, all - before, 'findings seen only in the removed scan are gone');
 });
+
+test('refuses to report on a page whose styles did not load', { skip: !browserAvailable && 'no browser available' }, async () => {
+  const created = await post('/api/scans', { urls: [`${siteUrl}/nostyle.html`], viewport: 'desktop' });
+  await queue.whenIdle();
+  const { body } = await call(`/api/scans/${created.body.id}`);
+  assert.equal(body.scan.status, 'failed');
+  assert.match(body.scan.error, /styles did not load \(http:\/\/127\.0\.0\.1:9\/missing\.css\)/);
+});
