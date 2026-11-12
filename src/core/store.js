@@ -5,7 +5,7 @@ import { pageScore, scanScore } from './score.js';
 import { levelOfRule } from './wcag.js';
 
 // Bumped when the score formula changes; stored scores are then recomputed.
-const SCORE_VERSION = 2;
+const SCORE_VERSION = 3;
 import { fingerprint } from './urls.js';
 
 const SCHEMA = `
@@ -144,7 +144,9 @@ export function createStore(db) {
   /**
    * Recompute every stored page and scan score with the current formula, from
    * the rule results kept for each page. Scans made before element counts
-   * were recorded have no pass share, so their failing rules earn nothing.
+   * were recorded only know how many findings each rule had, so the share
+   * that passed is estimated as 1 / (1 + findings): one finding counts as
+   * half the elements failing, 28 findings as nearly all of them.
    */
   function rescoreAll() {
     const rows = q(`
@@ -155,11 +157,12 @@ export function createStore(db) {
     const byPage = new Map();
     for (const row of rows) {
       if (!byPage.has(row.page_id)) byPage.set(row.page_id, []);
+      const counted = row.passed_nodes !== null;
       byPage.get(row.page_id).push({
         outcome: row.outcome,
         impactRank: row.impact_rank,
-        passed: row.passed_nodes ?? 0,
-        failed: row.failed_nodes ?? row.fail_findings,
+        passed: counted ? row.passed_nodes : 1,
+        failed: counted ? row.failed_nodes : row.fail_findings,
         scored: levelOfRule(JSON.parse(row.tags || '[]')) !== 'Best practice',
       });
     }

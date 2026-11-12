@@ -147,8 +147,9 @@ Fair, below 60 is Poor.
 Level Access's score is also a weighted average over rules, but its weights
 are not published, so the two numbers are close without being equal: 84 here
 against 80 there for the page above. Scans made before 12 Nov 2026 were
-rescored with this formula but have no element counts, so their failing rules
-earn nothing; re-run them for an exact score.
+rescored with this formula, but they only recorded how many findings each rule
+had, so the share that passed is estimated as `1 / (1 + findings)`. Re-run
+them for an exact score.
 
 ## Limits
 

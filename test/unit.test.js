@@ -215,3 +215,31 @@ test('results from two viewports merge into one set of findings', () => {
   assert.equal(merged.score, 25); // 1 passed / (1 + serious 3)
   assert.equal(mergeViewportResults([desktop], ['desktop']), desktop);
 });
+
+test('older scans without element counts are rescored by how many findings they have', () => {
+  const store = openStore(':memory:');
+  const scan = (n) => {
+    const s = store.createScan({ url: `https://example.com/${n}`, origin: 'https://example.com', standard: 'wcag22aa', bestPractices: false, viewport: 'both', maxPages: 1, engine: 'old' });
+    store.markRunning(s.id);
+    store.savePage(s.id, {
+      url: `https://example.com/${n}`, title: 'T', score: 95, // the score the old formula stored
+      meta: [{ id: 'aria-expanded-not-allowed', help: 'h', description: 'd', helpUrl: null, tags: ['custom', 'wcag2a', 'wcag412'] },
+        { id: 'image-alt', help: 'h', description: 'd', helpUrl: null, tags: ['wcag2a', 'wcag111'] },
+        { id: 'region', help: 'h', description: 'd', helpUrl: null, tags: ['best-practice'] }],
+      // No passed/failed counts, as rows written before they were recorded.
+      rules: [{ id: 'aria-expanded-not-allowed', outcome: 'fail', impactRank: 3, nodes: n }, { id: 'image-alt', outcome: 'pass', impactRank: 0, nodes: 4 },
+        { id: 'region', outcome: 'fail', impactRank: 2, nodes: 9 }],
+      findings: Array.from({ length: n }, (_, i) => ({ ruleId: 'aria-expanded-not-allowed', kind: 'fail', impactRank: 3, selector: `nav:nth-child(${i + 1})`, html: '<nav>', summary: '' })),
+    });
+    store.finishScan(s.id);
+    return s.id;
+  };
+  const many = scan(28);
+  const one = scan(1);
+  store.rescoreAll();
+  const [manyScore, oneScore] = [store.getScan(many).score, store.getScan(one).score];
+  assert.ok(manyScore < oneScore, `28 findings (${manyScore}) must score below 1 finding (${oneScore})`);
+  assert.equal(oneScore, 44);  // 1 pass + serious rule earning 3 x 0.5 x 1/2, over 1 + 3; the best-practice failure is ignored
+  assert.equal(manyScore, 26); // 1 + 3 x 0.5 x 1/29, over 4
+  store.close();
+});
