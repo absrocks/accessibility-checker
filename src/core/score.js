@@ -2,48 +2,46 @@
 export const IMPACT_RANK = { minor: 1, moderate: 2, serious: 3, critical: 4 };
 export const IMPACT_LABEL = ['Unknown', 'Minor', 'Moderate', 'Serious', 'Critical'];
 
-/** What a failing rule weighs, by severity rank. Unknown severity counts as moderate. */
-export const SEVERITY_WEIGHT = [2, 1, 2, 3, 4];
-/** A failing rule loses at least this share of its weight, however few elements fail. */
-export const FAIL_FLOOR = 0.5;
+/**
+ * The most a page can score. Automated rules cover only part of WCAG, so a
+ * page that passes all of them is not shown as 100.
+ */
+export const MAX_SCORE = 85;
 
 /**
- * Page score, 0 to 100: a weighted average over the rules that were checked.
+ * Points a failing rule costs, by severity rank. Minor is the only cheaper
+ * one. See "How the score works" in the README for where the numbers come from.
+ */
+export const RULE_COST = [0.93, 0.65, 0.93, 0.93, 0.93];
+
+/**
+ * Page score, 0 to 85.
  *
- *   A rule that passed            weighs 1 and earns 1.
- *   A rule that failed            weighs its severity (critical 4, serious 3,
- *                                 moderate 2, minor 1) and earns
- *                                 weight x 0.5 x (share of checked elements that passed).
- *   A rule that needs review,     is left out.
- *   did not apply, or is only
- *   a best practice
+ *   score = 85 - 0.93 for each failing rule (0.65 if its severity is minor),
+ *           rounded down
  *
- *   score = 100 x earned / total weight
+ * What counts is whether a rule fails on the page, not how many elements
+ * fail it: 28 elements failing one rule cost the same as one. Rules that
+ * need review, did not apply, or are only best practices cost nothing.
  *
- * So a failing rule always costs at least half its weight, and costs all of
- * it when every element it checked fails. More failing elements, or a more
- * severe rule, lower the score; fixing some of them raises it.
+ * This is calibrated to Level Access's Access Engine, whose scores for the
+ * same page it reproduces when both report the same failing rules.
  *
- * `rules` are rows with { outcome, impactRank, passed, failed, scored }.
- * A page where nothing could be scored returns null, not 100.
+ * `rules` are rows with { outcome, impactRank, scored }. A page where no
+ * scored rule was evaluated returns null.
  */
 export function pageScore(rules) {
-  let total = 0;
-  let earned = 0;
+  let evaluated = 0;
+  let cost = 0;
   for (const r of rules) {
     if (r.scored === false) continue;
-    if (r.outcome === 'pass') {
-      total += 1;
-      earned += 1;
-    } else if (r.outcome === 'fail') {
-      const weight = SEVERITY_WEIGHT[r.impactRank] ?? SEVERITY_WEIGHT[0];
-      const checked = (r.passed || 0) + (r.failed || 0);
-      const passShare = checked ? (r.passed || 0) / checked : 0;
-      total += weight;
-      earned += weight * (1 - FAIL_FLOOR) * passShare;
+    if (r.outcome === 'pass') evaluated += 1;
+    else if (r.outcome === 'fail') {
+      evaluated += 1;
+      cost += RULE_COST[r.impactRank] ?? RULE_COST[0];
     }
   }
-  return total ? Math.round((100 * earned) / total) : null;
+  return evaluated ? Math.max(0, Math.floor(MAX_SCORE - cost + 1e-9)) : null;
 }
 
 /** Scan score: the mean of its page scores, ignoring pages with no score. */

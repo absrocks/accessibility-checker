@@ -23,24 +23,28 @@ test('levelOfRule falls back to best practice', () => {
   assert.equal(levelOfRule(['best-practice', 'cat.semantics']), 'Best practice');
 });
 
-test('pageScore is a weighted average that tracks severity and how widespread a failure is', () => {
+test('pageScore starts at 85 and loses about a point per failing rule', () => {
   const passes = Array.from({ length: 9 }, () => ({ outcome: 'pass' }));
-  const fail = (impactRank, passed, failed) => ({ outcome: 'fail', impactRank, passed, failed });
+  const fail = (impactRank, extra = {}) => ({ outcome: 'fail', impactRank, ...extra });
   const score = (...failing) => pageScore([...passes, ...failing, { outcome: 'review', impactRank: 4 }, { outcome: 'inapplicable' }]);
 
-  assert.equal(score(), 100);
-  assert.equal(score(fail(3, 0, 28)), 75);   // every element fails: earns nothing, 9 / (9 + 3)
-  assert.equal(score(fail(3, 27, 1)), 87);   // one of 28 fails: 9 + 3 x 0.5 x 27/28, over 12
-  assert.equal(score(fail(3, 0, 0)), 75);    // no element counts recorded: earns nothing
-  assert.ok(score(fail(3, 0, 28)) < score(fail(3, 14, 14)), 'fixing half the elements raises the score');
-  assert.ok(score(fail(3, 14, 14)) < score(fail(3, 27, 1)));
-  assert.ok(score(fail(4, 9, 1)) < score(fail(1, 9, 1)), 'a critical failure costs more than a minor one');
-  assert.ok(score(fail(3, 27, 1)) < 100, 'a single failing element still costs at least half the rule');
-  assert.ok(score(fail(3, 0, 28), fail(3, 9, 1)) < score(fail(3, 9, 1)), 'more failing rules, lower score');
+  assert.equal(score(), 85, 'nothing failing is 85, not 100');
+  assert.equal(score(fail(3)), 84);          // 85 - 0.93, rounded down
+  assert.equal(score(fail(1)), 84);          // 85 - 0.65
+  assert.equal(score(fail(3), fail(3)), 83); // 85 - 1.86
+  assert.equal(score(fail(3, { passed: 0, failed: 28 })), score(fail(3, { passed: 27, failed: 1 })), 'how many elements fail a rule does not matter');
+  assert.equal(pageScore(Array.from({ length: 200 }, () => fail(4))), 0, 'never below zero');
+
+  // Level Access's four scans of the HPC pages: serious (its "High") and minor (its "Low") failing rules -> its score.
+  for (const [serious, minor, levelAccess] of [[4, 1, 80], [4, 2, 79], [6, 1, 78], [6, 2, 78]]) {
+    const rules = [...passes, ...Array.from({ length: serious }, () => fail(3)), ...Array.from({ length: minor }, () => fail(1))];
+    assert.equal(pageScore(rules), levelAccess, `${serious} serious + ${minor} minor failing rules`);
+  }
 
   // Best-practice rules are reported but never change the score, pass or fail.
-  assert.equal(pageScore([...passes, fail(3, 0, 28), { outcome: 'pass', scored: false }, { ...fail(4, 0, 5), scored: false }]), 75);
+  assert.equal(pageScore([...passes, fail(3), { outcome: 'pass', scored: false }, { ...fail(4), scored: false }]), 84);
   assert.equal(pageScore([{ outcome: 'inapplicable' }]), null);
+  assert.equal(pageScore([{ outcome: 'pass', scored: false }]), null, 'only best-practice rules evaluated: no score');
 });
 
 test('scanScore averages only pages that have a score', () => {
@@ -190,6 +194,7 @@ test('custom rule results become pass, fail, review or inapplicable', () => {
     'table-no-headers': 'inapplicable',
     'list-empty': 'inapplicable',
     'label-empty': 'inapplicable',
+    'contrast-translucent-background': 'inapplicable',
     'link-name-generic': 'review',
     'link-name-short': 'pass',
   });
@@ -212,21 +217,20 @@ test('results from two viewports merge into one set of findings', () => {
   assert.match(merged.findings.find((f) => f.selector === 'nav:nth-child(1)').summary, /Seen at: desktop, mobile$/);
   assert.match(merged.findings.find((f) => f.selector === 'nav:nth-child(2)').summary, /Seen at: mobile$/);
   assert.deepEqual(merged.rules.map((r) => [r.id, r.outcome, r.nodes]), [['aria-expanded-not-allowed', 'fail', 3], ['image-alt', 'pass', 2]]);
-  assert.equal(merged.score, 25); // 1 passed / (1 + serious 3)
+  assert.equal(merged.score, 84); // one serious rule failing
   assert.equal(mergeViewportResults([desktop], ['desktop']), desktop);
 });
 
-test('older scans without element counts are rescored by how many findings they have', () => {
+test('stored scans are rescored with the current formula', () => {
   const store = openStore(':memory:');
   const scan = (n) => {
     const s = store.createScan({ url: `https://example.com/${n}`, origin: 'https://example.com', standard: 'wcag22aa', bestPractices: false, viewport: 'both', maxPages: 1, engine: 'old' });
     store.markRunning(s.id);
     store.savePage(s.id, {
-      url: `https://example.com/${n}`, title: 'T', score: 95, // the score the old formula stored
+      url: `https://example.com/${n}`, title: 'T', score: 95, // what an earlier formula stored
       meta: [{ id: 'aria-expanded-not-allowed', help: 'h', description: 'd', helpUrl: null, tags: ['custom', 'wcag2a', 'wcag412'] },
         { id: 'image-alt', help: 'h', description: 'd', helpUrl: null, tags: ['wcag2a', 'wcag111'] },
         { id: 'region', help: 'h', description: 'd', helpUrl: null, tags: ['best-practice'] }],
-      // No passed/failed counts, as rows written before they were recorded.
       rules: [{ id: 'aria-expanded-not-allowed', outcome: 'fail', impactRank: 3, nodes: n }, { id: 'image-alt', outcome: 'pass', impactRank: 0, nodes: 4 },
         { id: 'region', outcome: 'fail', impactRank: 2, nodes: 9 }],
       findings: Array.from({ length: n }, (_, i) => ({ ruleId: 'aria-expanded-not-allowed', kind: 'fail', impactRank: 3, selector: `nav:nth-child(${i + 1})`, html: '<nav>', summary: '' })),
@@ -234,12 +238,10 @@ test('older scans without element counts are rescored by how many findings they 
     store.finishScan(s.id);
     return s.id;
   };
-  const many = scan(28);
-  const one = scan(1);
+  const [many, one] = [scan(28), scan(1)];
+  assert.equal(store.getScan(many).score, 95);
   store.rescoreAll();
-  const [manyScore, oneScore] = [store.getScan(many).score, store.getScan(one).score];
-  assert.ok(manyScore < oneScore, `28 findings (${manyScore}) must score below 1 finding (${oneScore})`);
-  assert.equal(oneScore, 44);  // 1 pass + serious rule earning 3 x 0.5 x 1/2, over 1 + 3; the best-practice failure is ignored
-  assert.equal(manyScore, 26); // 1 + 3 x 0.5 x 1/29, over 4
+  // One WCAG rule fails in both; the best-practice failure is ignored.
+  assert.deepEqual([store.getScan(many).score, store.getScan(one).score], [84, 84]);
   store.close();
 });

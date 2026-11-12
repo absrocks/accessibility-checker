@@ -103,6 +103,19 @@ export const CUSTOM_RULES = [
     tags: ['custom', 'wcag2a', 'wcag131'],
   },
   {
+    id: 'contrast-translucent-background',
+    level: 'error',
+    impactRank: 3,
+    help: 'Text must not depend on a semi-transparent background for its contrast',
+    description:
+      'Measured against the nearest solid background, this text does not reach 4.5:1. A semi-transparent background ' +
+      'sits in between, and it is not counted, because what shows through it can change. This is how Level Access measures ' +
+      'contrast; axe-core blends the layers and may pass the same text. If the text is readable as rendered, give the ' +
+      'element a solid background colour so every tool agrees, or dismiss the finding.',
+    helpUrl: 'https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum',
+    tags: ['custom', 'wcag2aa', 'wcag143'],
+  },
+  {
     id: 'link-name-generic',
     level: 'warning',
     impactRank: 2,
@@ -242,6 +255,52 @@ export function runCustomRulesInPage({ maxHtml }) {
       count('label-empty');
       if (!norm(axe.commons.text.accessibleText(label)) && !label.querySelector('input, select, textarea')) {
         flag('label-empty', label, 'This label has no text');
+      }
+    }
+
+    // Small text whose contrast depends on a semi-transparent background.
+    // The colour is compared with the nearest fully opaque background; the
+    // translucent layers in between are skipped, and so is text opacity.
+    const parseColor = (value) => {
+      const m = /^rgba?\(([^)]+)\)$/.exec(String(value).trim());
+      if (!m) return null;
+      const p = m[1].split(/[\s,/]+/).filter(Boolean).map(Number);
+      return p.length >= 3 && p.every((n) => !Number.isNaN(n)) ? { r: p[0], g: p[1], b: p[2], a: p.length > 3 ? p[3] : 1 } : null;
+    };
+    const luminance = (c) => {
+      const channel = (v) => { const s = v / 255; return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4; };
+      return 0.2126 * channel(c.r) + 0.7152 * channel(c.g) + 0.0722 * channel(c.b);
+    };
+    const contrast = (a, b) => {
+      const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+      return (hi + 0.05) / (lo + 0.05);
+    };
+    const hex = (c) => `#${[c.r, c.g, c.b].map((v) => Math.round(v).toString(16).padStart(2, '0')).join('')}`;
+    const white = { r: 255, g: 255, b: 255, a: 1 };
+    for (const el of document.querySelectorAll('body *')) {
+      if (/^(script|style|noscript|template|option)$/i.test(el.tagName)) continue;
+      if (!Array.from(el.childNodes).some((n) => n.nodeType === 3 && n.textContent.trim())) continue;
+      if (!exposed(el)) continue;
+      const style = getComputedStyle(el);
+      const size = parseFloat(style.fontSize);
+      const bold = (parseInt(style.fontWeight, 10) || 400) >= 700;
+      if (size >= 24 || (bold && size >= 18.66)) continue; // large text has a lower bar and is left to axe-core
+      const text = parseColor(style.color);
+      if (!text) continue;
+      let solid = null;
+      let translucent = false;
+      for (let n = el; n && n.nodeType === 1 && !solid; n = n.parentElement) {
+        const c = parseColor(getComputedStyle(n).backgroundColor);
+        if (!c || c.a === 0) continue;
+        if (c.a < 1) translucent = true;
+        else solid = c;
+      }
+      if (!translucent) continue; // text on solid backgrounds is axe-core's color-contrast rule
+      count('contrast-translucent-background');
+      const ratio = contrast(text, solid || white);
+      if (ratio < 4.5) {
+        flag('contrast-translucent-background', el,
+          `Text colour ${hex(text)} against the nearest solid background ${hex(solid || white)} is ${ratio.toFixed(2)}:1; a semi-transparent background in between is not counted`);
       }
     }
 

@@ -81,7 +81,7 @@ test('crawls the fixture site and reports the known problems', { skip: !browserA
 
   // Rules ported from the Docs CI script, which axe-core does not have.
   for (const rule of ['aria-expanded-not-allowed', 'svg-accessible-name', 'link-name-suspicious', 'focusable-no-role',
-    'link-name-not-unique', 'link-label-in-name', 'table-no-headers']) {
+    'link-name-not-unique', 'link-label-in-name', 'table-no-headers', 'contrast-translucent-background']) {
     assert.ok(failed.includes(rule), `expected custom rule ${rule} to fail, got ${failed.join(', ')}`);
   }
   const outcome = (id) => body.rules.find((r) => r.rule_id === id);
@@ -96,7 +96,7 @@ test('crawls the fixture site and reports the known problems', { skip: !browserA
   const good = body.pages.find((p) => p.url.endsWith('/good.html'));
   assert.equal(good.fail_count, 0, 'the good page has no failed findings');
   assert.equal(good.review_count, 0, 'allowed aria-expanded, named and hidden SVGs, and a descriptive link are not flagged');
-  assert.equal(good.score, 100);
+  assert.equal(good.score, 85, 'nothing failing scores the maximum, 85');
   assert.ok(bad.score < good.score, `bad page (${bad.score}) scores below good page (${good.score})`);
 
   const contrast = body.rules.find((r) => r.rule_id === 'color-contrast');
@@ -162,7 +162,7 @@ test('scans a page whose third-party stylesheet did not load, and says so', { sk
   const { body } = await call(`/api/scans/${created.body.id}`);
   assert.equal(body.scan.status, 'done', body.scan.error);
   const [blocked, good] = body.pages;
-  assert.equal(blocked.score, 100);
+  assert.equal(blocked.score, 85);
   assert.match(blocked.note, /^Scanned without a stylesheet from 127\.0\.0\.1:9, which did not load\./);
   assert.equal(good.note, null, 'a page that loaded everything has no note');
 });

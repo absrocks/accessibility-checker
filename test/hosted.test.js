@@ -84,7 +84,7 @@ test('scans listed pages in the browser and finds what the server scanner finds'
   // The same rules test/e2e.test.js expects from the Playwright scanner on these fixtures.
   for (const rule of ['image-alt', 'label', 'button-name', 'color-contrast', 'html-has-lang', 'aria-allowed-attr',
     'aria-expanded-not-allowed', 'svg-accessible-name', 'link-name-suspicious', 'focusable-no-role',
-    'link-name-not-unique', 'link-label-in-name', 'table-no-headers']) {
+    'link-name-not-unique', 'link-label-in-name', 'table-no-headers', 'contrast-translucent-background']) {
     assert.ok(failed.includes(rule), `expected ${rule} to fail, got ${failed.join(', ')}`);
   }
   const outcome = (id) => detail.rules.find((r) => r.rule_id === id);
@@ -92,8 +92,8 @@ test('scans listed pages in the browser and finds what the server scanner finds'
   assert.deepEqual([outcome('aria-expanded-not-allowed').open, outcome('focusable-no-role').open, outcome('svg-accessible-name').open], [1, 1, 1]);
 
   const [bad, good] = detail.pages;
-  assert.deepEqual([good.fail_count, good.review_count, good.score], [0, 0, 100]);
-  assert.ok(bad.score < 100);
+  assert.deepEqual([good.fail_count, good.review_count, good.score], [0, 0, 85]);
+  assert.ok(bad.score < 85);
   assert.equal(detail.scan.score, Math.round((bad.score + good.score) / 2));
 
   const findings = await api(`/api/findings?scan=${detail.scan.id}&rule=aria-expanded-not-allowed`);
@@ -127,7 +127,7 @@ test('refuses to report on a page whose styles did not load', { skip: !browser &
 test('scans a page whose third-party stylesheet did not load, and says so', { skip: !browser && 'no browser available' }, async () => {
   const detail = await scanAndWait({ urls: [`${urlOf(openSite)}/fonts-blocked.html`], viewport: 'desktop' });
   assert.equal(detail.scan.status, 'done', detail.scan.error);
-  assert.equal(detail.pages[0].score, 100);
+  assert.equal(detail.pages[0].score, 85);
   assert.match(detail.pages[0].note, /^Scanned without a stylesheet from 127\.0\.0\.1:9, which did not load\./);
 });
 

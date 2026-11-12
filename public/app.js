@@ -60,8 +60,8 @@ const fmtDay = (iso) => (iso ? new Date(iso).toLocaleDateString(undefined, { mon
 
 function band(score) {
   if (score == null) return { cls: '', label: 'No score' };
-  if (score >= 85) return { cls: 'band-good', label: 'Good' };
-  if (score >= 60) return { cls: 'band-fair', label: 'Fair' };
+  if (score >= 80) return { cls: 'band-good', label: 'Good' };
+  if (score >= 50) return { cls: 'band-fair', label: 'Fair' };
   return { cls: 'band-poor', label: 'Poor' };
 }
 
@@ -78,7 +78,7 @@ function scoreRing(score) {
   const r = 46;
   const c = 2 * Math.PI * r;
   const filled = score == null ? 0 : (score / 100) * c;
-  return s('svg', { class: b.cls, width: 116, height: 116, viewBox: '0 0 116 116', role: 'img', 'aria-label': score == null ? 'No score yet' : `Score ${score} out of 100, ${b.label}` },
+  return s('svg', { class: b.cls, width: 116, height: 116, viewBox: '0 0 116 116', role: 'img', 'aria-label': score == null ? 'No score yet' : `Score ${score}, ${b.label}. The highest possible is 85.` },
     s('circle', { class: 'ring-bg', cx: 58, cy: 58, r, fill: 'none', 'stroke-width': 10 }),
     s('circle', { class: 'ring', cx: 58, cy: 58, r, fill: 'none', 'stroke-width': 10, 'stroke-linecap': 'round', 'stroke-dasharray': `${filled} ${c - filled}`, transform: 'rotate(-90 58 58)' }),
     s('text', { x: 58, y: 68, 'text-anchor': 'middle' }, score == null ? '—' : score));
@@ -385,7 +385,7 @@ async function viewScan([id], query) {
   }
   const summary = h('div', { class: 'grid' },
     h('section', { class: 'card' }, h('h2', {}, 'Score'), h('div', { class: 'score' }, scoreRing(scan.score),
-      h('p', {}, h('strong', {}, band(scan.score).label), h('br'), h('span', { class: 'delta' }, 'Weighted share of the rules checked that passed. A failing rule costs more the more severe it is and the more elements fail it. Best-practice rules do not count.')))),
+      h('p', {}, h('strong', {}, band(scan.score).label), h('br'), h('span', { class: 'delta' }, 'Out of 85, the most an automated check can give. Each failing rule costs about one point. Best-practice rules do not count.')))),
     h('section', { class: 'card' }, h('h2', {}, `Open failed findings (${totalOpen})`), severityBars(data.severity)),
     h('section', { class: 'card' }, h('h2', {}, 'Rules'),
       h('dl', { class: 'stats' },

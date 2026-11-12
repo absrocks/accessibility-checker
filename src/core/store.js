@@ -5,7 +5,7 @@ import { pageScore, scanScore } from './score.js';
 import { levelOfRule } from './wcag.js';
 
 // Bumped when the score formula changes; stored scores are then recomputed.
-const SCORE_VERSION = 3;
+const SCORE_VERSION = 4;
 import { fingerprint } from './urls.js';
 
 const SCHEMA = `
@@ -147,26 +147,18 @@ export function createStore(db) {
 
   /**
    * Recompute every stored page and scan score with the current formula, from
-   * the rule results kept for each page. Scans made before element counts
-   * were recorded only know how many findings each rule had, so the share
-   * that passed is estimated as 1 / (1 + findings): one finding counts as
-   * half the elements failing, 28 findings as nearly all of them.
+   * the rule results kept for each page.
    */
   function rescoreAll() {
     const rows = q(`
-      SELECT rr.page_id, rr.rule_id, rr.outcome, rr.impact_rank, rr.passed_nodes, rr.failed_nodes, r.tags,
-        (SELECT COUNT(*) FROM scan_findings sf JOIN findings f ON f.id = sf.finding_id
-           WHERE sf.page_id = rr.page_id AND sf.kind = 'fail' AND f.rule_id = rr.rule_id) AS fail_findings
+      SELECT rr.page_id, rr.outcome, rr.impact_rank, r.tags
       FROM rule_results rr LEFT JOIN rules r ON r.rule_id = rr.rule_id`).all();
     const byPage = new Map();
     for (const row of rows) {
       if (!byPage.has(row.page_id)) byPage.set(row.page_id, []);
-      const counted = row.passed_nodes !== null;
       byPage.get(row.page_id).push({
         outcome: row.outcome,
         impactRank: row.impact_rank,
-        passed: counted ? row.passed_nodes : 1,
-        failed: counted ? row.failed_nodes : row.fail_findings,
         scored: levelOfRule(JSON.parse(row.tags || '[]')) !== 'Best practice',
       });
     }

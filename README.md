@@ -2,7 +2,7 @@
 
 A local web app that scans web pages for accessibility problems and tracks the
 findings over time. It loads each page in headless Chrome, evaluates it with
-[axe-core](https://github.com/dequelabs/axe-core) plus eleven custom rules, and
+[axe-core](https://github.com/dequelabs/axe-core) plus twelve custom rules, and
 stores the results in a SQLite file.
 
 ## Run it
@@ -92,6 +92,7 @@ from the Docs site's CI script (`.github/scripts/a11y-check.cjs`).
 | `link-name-not-unique` | Failed, serious | 2.4.4 | Links with the same name that go to different places |
 | `link-name-suspicious` | Failed, serious | 2.4.4 | A link named only by a symbol, or by more than 150 characters |
 | `svg-accessible-name` | Failed, serious | 1.1.1 | An exposed inline SVG with no name, outside a control |
+| `contrast-translucent-background` | Failed, serious | 1.4.3 | Small text that only reaches 4.5:1 because of a semi-transparent background; measured against the nearest solid background |
 | `link-label-in-name` | Failed, minor | 2.5.3 | A link with an `aria-label` that does not contain its visible text exactly |
 | `table-no-headers` | Failed, minor | 1.3.1 | A table with no `th` and no caption that is not marked `role="presentation"` |
 | `link-name-generic` | Needs review | 2.4.4 | A link named "click here", "read more" and similar |
@@ -106,50 +107,56 @@ exposed at desktop width and all 28 at mobile width.
 
 ### Compared with Level Access
 
-On `https://hpc.njit.edu/MIG/` (11 Nov 2026) Access Engine reported 47
-findings and this checker 39 of the same ones:
+On `https://hpc.njit.edu/MIG/` (11 Nov 2026) Access Engine and this checker
+report the same findings and the same score:
 
 | Level Access rule | Level Access | This checker |
 |---|---:|---:|
 | Aria-expanded used where it is not allowed | 28 | 28 |
 | Focusable elements cannot be missing a role | 1 | 1 |
 | Link has non-unique accessible name | 4 | 4 |
+| Non-large text without sufficient contrast | 8 | 8 |
 | A element contains visible text not found in the accessible name | 6 | 6 |
-| Non-large text without sufficient contrast | 8 | 0 |
 | Ul element is empty (flagged) | 1 | 1 |
 | Label element empty (flagged) | 1 | 1 |
+| **Failed findings** | **47** | **47** |
+| **Score** | **80** | **80** |
 
-The eight contrast findings are not reproduced on purpose. They are white and
-light-grey footer text on a near-black background (`rgba(0, 0, 0, 0.87)`);
-Level Access reports the background as white. axe-core measures the real
-colours and passes them. Level Access also flags the events table on another
-page as a layout table although it has seven header cells; `table-no-headers`
-does not.
+Two things to know about that match:
+
+- The eight contrast findings are white and light-grey footer text on a
+  near-black, semi-transparent background (`rgba(0, 0, 0, 0.87)`). The text is
+  readable as rendered, and axe-core's own contrast rule passes it. Level
+  Access ignores semi-transparent backgrounds and compares the text with the
+  white page behind them. `contrast-translucent-background` measures the same
+  way so the two tools agree; giving the footer a solid background colour
+  clears the findings in both.
+- On `/HPC_Events_and_Workshops/` this checker scores 80 and Level Access 79.
+  Level Access also fails that page's events table as a layout table, although
+  it has seven header cells. That finding is not reproduced.
 
 ## How the score works
 
-A page's score is a weighted average over the rules that were checked:
+    score = 85 − 0.93 for each failing rule (0.65 if its severity is minor),
+            rounded down
 
-- A rule that passed weighs 1 and earns 1.
-- A rule that failed weighs its severity (critical 4, serious 3, moderate 2,
-  minor 1) and earns `weight × 0.5 × share of checked elements that passed`.
-- Rules that need review, did not apply, or are only best practices are left
-  out.
+- The most a page can score is 85. Automated rules cover only part of WCAG,
+  so passing all of them is not shown as 100.
+- What counts is whether a rule fails on the page, not how many elements fail
+  it: 28 elements failing one rule cost the same as one.
+- Rules that need review, did not apply, or are only best practices cost
+  nothing.
 
-    score = 100 × earned / total weight
+A scan's score is the mean of its page scores. Bands: 80 and up is Good, 50
+to 79 is Fair, below 50 is Poor.
 
-So a failing rule always costs at least half its weight, and all of it when
-every element it checked fails. More failing elements, more failing rules, or
-more severe rules lower the score; fixing some of them raises it. A scan's
-score is the mean of its page scores. Bands: 85 and up is Good, 60 to 84 is
-Fair, below 60 is Poor.
-
-Level Access's score is also a weighted average over rules, but its weights
-are not published, so the two numbers are close without being equal: 84 here
-against 80 there for the page above. Scans made before 12 Nov 2026 were
-rescored with this formula, but they only recorded how many findings each rule
-had, so the share that passed is estimated as `1 / (1 + findings)`. Re-run
-them for an exact score.
+The numbers are calibrated to Level Access, not taken from it. Its page code
+shows a weighted average over rules with a factor of 0.85, its Monitoring view
+shows 0.9 points of "score impact" per failing High rule, and four of its
+scans of these pages fix the rest: 4, 4, 6 and 6 failing High rules with 1, 2,
+1 and 2 failing Low rules scored 80, 79, 78 and 78, which this formula
+reproduces. Level Access's weight for Critical rules is not known; critical
+and moderate rules are charged the same as serious ones here.
 
 ## Limits
 
