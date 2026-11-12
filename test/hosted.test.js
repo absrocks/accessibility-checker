@@ -121,7 +121,14 @@ test('says plainly when a site does not allow itself to be read', { skip: !brows
 test('refuses to report on a page whose styles did not load', { skip: !browser && 'no browser available' }, async () => {
   const detail = await scanAndWait({ urls: [`${urlOf(openSite)}/nostyle.html`], viewport: 'desktop' });
   assert.equal(detail.scan.status, 'failed');
-  assert.match(detail.scan.error, /styles did not load \(http:\/\/127\.0\.0\.1:9\/missing\.css\)/);
+  assert.match(detail.scan.error, /styles did not load \(http:\/\/127\.0\.0\.1:\d+\/missing-style\.css\)/);
+});
+
+test('scans a page whose third-party stylesheet did not load, and says so', { skip: !browser && 'no browser available' }, async () => {
+  const detail = await scanAndWait({ urls: [`${urlOf(openSite)}/fonts-blocked.html`], viewport: 'desktop' });
+  assert.equal(detail.scan.status, 'done', detail.scan.error);
+  assert.equal(detail.pages[0].score, 100);
+  assert.match(detail.pages[0].note, /^Scanned without a stylesheet from 127\.0\.0\.1:9, which did not load\./);
 });
 
 test('a scanned page cannot run its own scripts or reach the checker', { skip: !browser && 'no browser available' }, async () => {

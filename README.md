@@ -161,10 +161,11 @@ them for an exact score.
   text missing from an accessible name.
 - The published copy can only scan sites that allow other websites to read
   them; see "Publish a copy that runs in the browser".
-- A page whose stylesheets fail to load is not reported on. Checked without
-  its styles, a page produces hundreds of false findings, so both scanners
-  load it once more and then fail that page with a message naming the
-  stylesheet.
+- A page whose own stylesheet fails to load is not reported on. Checked
+  without its styles, a page produces hundreds of false findings, so both
+  scanners load it once more and then fail that page with a message naming
+  the stylesheet. A stylesheet from another site that fails, typically web
+  fonts, does not stop the scan; the page is scanned and carries a note.
 - Content inside iframes is not evaluated.
 - Pages behind a login are not reachable; the scanner has no session.
 - The crawler follows links found in the page, not sitemaps, and does not read

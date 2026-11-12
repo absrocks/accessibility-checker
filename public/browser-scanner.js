@@ -16,8 +16,8 @@
 import { runCustomRulesInPage } from './lib/custom-rules.js';
 import {
   DEVICES, MAX_HTML, axeRunOptions, combineResults, crawl, devicesFor,
-  mergeViewportResults, runAxeInPage, stylesMissingMessage, tagsFor, trackStylesheetErrorsInPage,
-  unloadedStylesheetsInPage,
+  mergeViewportResults, runAxeInPage, stylesMissingMessage, tagsFor, thirdPartyStylesNote,
+  trackStylesheetErrorsInPage, unloadedStylesheetsInPage,
 } from './lib/engine.js';
 
 const SCAN_TIMEOUT_MS = 60_000;
@@ -33,7 +33,7 @@ function frameMain(id, runOptions, maxHtml, runAxe, runCustom, unloadedStyleshee
     try {
       if (!window.axe) throw new Error('axe-core did not start in the page');
       const missing = unloadedStylesheets();
-      if (missing.length) return reply({ ok: false, stylesMissing: missing });
+      if (missing.own.length) return reply({ ok: false, stylesMissing: missing.own });
       if (document.fonts && document.fonts.ready) {
         await Promise.race([document.fonts.ready, new Promise((r) => setTimeout(r, 3000))]);
       }
@@ -43,7 +43,7 @@ function frameMain(id, runOptions, maxHtml, runAxe, runCustom, unloadedStyleshee
       document.head.append(style);
       const axeResult = await runAxe({ runOptions, maxHtml });
       const customRaw = runCustom({ maxHtml });
-      reply({ ok: true, axeResult, customRaw });
+      reply({ ok: true, axeResult, customRaw, thirdPartyStyles: missing.thirdParty });
     } catch (e) {
       reply({ ok: false, error: String((e && e.message) || e) });
     }
@@ -168,7 +168,7 @@ function scanInFrame(page, deviceName, tags, axeSource) {
     };
     const onMessage = (event) => {
       if (event.source !== frame.contentWindow || event.data?.checkerScan !== id) return;
-      if (event.data.ok) finish(resolve, combineResults(event.data.axeResult, event.data.customRaw, page.url));
+      if (event.data.ok) finish(resolve, combineResults(event.data.axeResult, event.data.customRaw, page.url, thirdPartyStylesNote(event.data.thirdPartyStyles)));
       else if (event.data.stylesMissing) finish(reject, Object.assign(new Error(stylesMissingMessage(event.data.stylesMissing)), { stylesMissing: true }));
       else finish(reject, new Error(`The page could not be evaluated: ${event.data.error}`));
     };

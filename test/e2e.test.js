@@ -27,7 +27,7 @@ before(async () => {
     const name = req.url === '/' ? 'bad.html' : req.url.slice(1).split('?')[0];
     try {
       const html = await readFile(join(fixtures, name));
-      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' }).end(html);
+      res.writeHead(200, { 'Content-Type': name.endsWith('.css') ? 'text/css' : 'text/html; charset=utf-8' }).end(html);
     } catch {
       res.writeHead(404, { 'Content-Type': 'text/plain' }).end('not found');
     }
@@ -153,5 +153,16 @@ test('refuses to report on a page whose styles did not load', { skip: !browserAv
   await queue.whenIdle();
   const { body } = await call(`/api/scans/${created.body.id}`);
   assert.equal(body.scan.status, 'failed');
-  assert.match(body.scan.error, /styles did not load \(http:\/\/127\.0\.0\.1:9\/missing\.css\)/);
+  assert.match(body.scan.error, /styles did not load \(http:\/\/127\.0\.0\.1:\d+\/missing-style\.css\)/);
+});
+
+test('scans a page whose third-party stylesheet did not load, and says so', { skip: !browserAvailable && 'no browser available' }, async () => {
+  const created = await post('/api/scans', { urls: [`${siteUrl}/fonts-blocked.html`, `${siteUrl}/good.html`], viewport: 'desktop' });
+  await queue.whenIdle();
+  const { body } = await call(`/api/scans/${created.body.id}`);
+  assert.equal(body.scan.status, 'done', body.scan.error);
+  const [blocked, good] = body.pages;
+  assert.equal(blocked.score, 100);
+  assert.match(blocked.note, /^Scanned without a stylesheet from 127\.0\.0\.1:9, which did not load\./);
+  assert.equal(good.note, null, 'a page that loaded everything has no note');
 });

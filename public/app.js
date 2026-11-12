@@ -377,6 +377,12 @@ async function viewScan([id], query) {
   }
 
   const totalOpen = data.severity.reduce((a, b) => a + b, 0);
+  const noted = data.pages.filter((p) => p.note);
+  if (noted.length) {
+    head.push(h('p', { class: 'card notice' }, noted.length === 1 && data.pages.length === 1
+      ? `Note: ${noted[0].note}`
+      : `Note: ${noted.length} of ${data.pages.length} pages ${noted.length === 1 ? 'was' : 'were'} scanned without a third-party stylesheet. See "By page" for which.`));
+  }
   const summary = h('div', { class: 'grid' },
     h('section', { class: 'card' }, h('h2', {}, 'Score'), h('div', { class: 'score' }, scoreRing(scan.score),
       h('p', {}, h('strong', {}, band(scan.score).label), h('br'), h('span', { class: 'delta' }, 'Weighted share of the rules checked that passed. A failing rule costs more the more severe it is and the more elements fail it. Best-practice rules do not count.')))),
@@ -423,7 +429,8 @@ async function viewScan([id], query) {
       ['Page', 'Score', { label: 'Failed', num: true }, { label: 'Needs review', num: true }],
       data.pages.map((p) => h('tr', {},
         h('td', { class: 'wrap' }, p.error ? [p.url, h('br'), h('span', { class: 'error' }, `Could not scan: ${p.error}`)]
-          : [h('a', { href: `#/scans/${id}/findings?page=${p.id}` }, p.title || p.url), h('br'), h('span', { class: 'delta' }, p.url)]),
+          : [h('a', { href: `#/scans/${id}/findings?page=${p.id}` }, p.title || p.url), h('br'), h('span', { class: 'delta' }, p.url),
+            p.note ? [h('br'), h('span', { class: 'delta' }, `Note: ${p.note}`)] : null]),
         h('td', {}, scoreText(p.score)), h('td', { class: 'num' }, p.error ? '—' : p.fail_count), h('td', { class: 'num' }, p.error ? '—' : p.review_count))));
 
   page('Scan results', head, summary, levels, h('section', { class: 'card' }, tabs, h('div', { role: 'tabpanel' }, body)));

@@ -130,16 +130,37 @@ export function trackStylesheetErrorsInPage() {
 }
 
 export function unloadedStylesheetsInPage() {
-  return Array.from(new Set(window.__checkerFailedStyles || []));
+  // In a scan frame the document has no address of its own; its base is the page it came from.
+  const pageOrigin = /^https?:$/.test(location.protocol) ? location.origin : new URL(document.baseURI).origin;
+  const own = [];
+  const thirdParty = [];
+  for (const href of new Set(window.__checkerFailedStyles || [])) {
+    let origin = null;
+    try {
+      origin = new URL(href).origin;
+    } catch { /* treated as third-party */ }
+    (origin === pageOrigin ? own : thirdParty).push(href);
+  }
+  // `own` are the site's stylesheets: without them the page is unstyled.
+  // `thirdParty` are from elsewhere, typically web fonts: the layout survives.
+  return { own, thirdParty };
 }
 /* c8 ignore stop */
 
-/** The message for a page whose styles could not be loaded. */
+/** A note kept with a page that was scanned without a third-party stylesheet. */
+export function thirdPartyStylesNote(hrefs) {
+  if (!hrefs?.length) return null;
+  const hosts = [...new Set(hrefs.map((h) => { try { return new URL(h).host; } catch { return h; } }))];
+  return `Scanned without ${hrefs.length === 1 ? 'a stylesheet' : `${hrefs.length} stylesheets`} from ${hosts.join(', ')}, which did not load. ` +
+    'Fonts or styling from there were not applied, which can change contrast and size results slightly.';
+}
+
+/** The message for a page whose own styles could not be loaded. */
 export const stylesMissingMessage = (hrefs) =>
   `The page's styles did not load (${hrefs[0]}${hrefs.length > 1 ? ` and ${hrefs.length - 1} more` : ''}), so the results would be wrong. Check your connection and run the scan again.`;
 
 /** Join axe-core's results for one page view with the custom rules' results. */
-export function combineResults(axeResult, customRaw, url) {
+export function combineResults(axeResult, customRaw, url, note = null) {
   const custom = shapeCustomResults(customRaw);
   const meta = [...axeResult.meta, ...custom.meta];
   const rules = markScored([...axeResult.rules, ...custom.rules], meta);
@@ -149,6 +170,7 @@ export function combineResults(axeResult, customRaw, url) {
     meta,
     findings: [...axeResult.findings, ...custom.findings],
     url,
+    note,
     score: pageScore(rules),
   };
 }
@@ -208,6 +230,7 @@ export function mergeViewportResults(results, names) {
     meta: [...meta.values()],
     findings: merged,
     links: [...new Set(results.flatMap((r) => r.links || []))],
+    note: [...new Set(results.map((r) => r.note).filter(Boolean))].join(' ') || null,
     score: pageScore(allRules),
   };
 }

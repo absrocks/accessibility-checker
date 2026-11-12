@@ -36,7 +36,8 @@ CREATE TABLE IF NOT EXISTS pages (
   url TEXT NOT NULL,
   title TEXT,
   score INTEGER,
-  error TEXT
+  error TEXT,
+  note TEXT                        -- something the reader should know about how this page was scanned
 );
 CREATE INDEX IF NOT EXISTS pages_scan ON pages(scan_id);
 
@@ -109,6 +110,9 @@ export function createStore(db) {
   if (!db.prepare('PRAGMA table_info(rule_results)').all().some((c) => c.name === 'passed_nodes')) {
     db.exec('ALTER TABLE rule_results ADD COLUMN passed_nodes INTEGER; ALTER TABLE rule_results ADD COLUMN failed_nodes INTEGER;');
   }
+  if (!db.prepare('PRAGMA table_info(pages)').all().some((c) => c.name === 'note')) {
+    db.exec('ALTER TABLE pages ADD COLUMN note TEXT');
+  }
 
   const now = () => new Date().toISOString();
   const tx = (fn) => {
@@ -128,7 +132,7 @@ export function createStore(db) {
     insertScan: q(`INSERT INTO scans (url, origin, urls, standard, best_practices, viewport, max_pages, status, engine, created_at)
                    VALUES (?, ?, ?, ?, ?, ?, ?, 'queued', ?, ?)`),
     getScan: q('SELECT * FROM scans WHERE id = ?'),
-    insertPage: q('INSERT INTO pages (scan_id, url, title, score, error) VALUES (?, ?, ?, ?, ?)'),
+    insertPage: q('INSERT INTO pages (scan_id, url, title, score, error, note) VALUES (?, ?, ?, ?, ?, ?)'),
     upsertRule: q(`INSERT INTO rules (rule_id, help, description, help_url, tags) VALUES (?, ?, ?, ?, ?)
                    ON CONFLICT(rule_id) DO UPDATE SET help = excluded.help, description = excluded.description,
                      help_url = excluded.help_url, tags = excluded.tags`),
@@ -252,12 +256,12 @@ export function createStore(db) {
       const at = now();
       return tx(() => {
         if (result.error) {
-          stmt.insertPage.run(scanId, result.url, null, null, result.error);
+          stmt.insertPage.run(scanId, result.url, null, null, result.error, null);
           stmt.bumpPages.run(scanId);
           return;
         }
         const pageId = Number(
-          stmt.insertPage.run(scanId, result.url, result.title || null, result.score ?? null, null).lastInsertRowid,
+          stmt.insertPage.run(scanId, result.url, result.title || null, result.score ?? null, null, result.note || null).lastInsertRowid,
         );
         for (const m of result.meta) {
           stmt.upsertRule.run(m.id, m.help || null, m.description || null, m.helpUrl || null, JSON.stringify(m.tags || []));

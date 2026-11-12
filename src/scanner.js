@@ -8,8 +8,8 @@ import { chromium } from 'playwright-core';
 import { runCustomRulesInPage } from './core/custom-rules.js';
 import {
   DEVICES, MAX_HTML, axeRunOptions, combineResults, crawl, devicesFor, engineLabel,
-  mergeViewportResults, runAxeInPage, stylesMissingMessage, tagsFor, trackStylesheetErrorsInPage,
-  unloadedStylesheetsInPage,
+  mergeViewportResults, runAxeInPage, stylesMissingMessage, tagsFor, thirdPartyStylesNote,
+  trackStylesheetErrorsInPage, unloadedStylesheetsInPage,
 } from './core/engine.js';
 
 const require = createRequire(import.meta.url);
@@ -88,11 +88,13 @@ export async function scanPage(context, url, { tags }) {
     await page.waitForLoadState('networkidle', { timeout: SETTLE_TIMEOUT_MS }).catch(() => {});
     // A stylesheet lost to a dropped connection leaves the page unstyled; load it again once.
     let missing = await page.evaluate(unloadedStylesheetsInPage);
-    if (missing.length) {
+    if (missing.own.length || missing.thirdParty.length) {
       await page.reload({ waitUntil: 'load', timeout: NAV_TIMEOUT_MS });
       await page.waitForLoadState('networkidle', { timeout: SETTLE_TIMEOUT_MS }).catch(() => {});
       missing = await page.evaluate(unloadedStylesheetsInPage);
-      if (missing.length) throw new Error(stylesMissingMessage(missing));
+      // Without the site's own styles the results would be wrong. Without a
+      // third-party one (usually web fonts) they are usable; the page keeps a note.
+      if (missing.own.length) throw new Error(stylesMissingMessage(missing.own));
     }
     // Finish any fade or slide at once, so colours are not measured mid-animation.
     await page.addStyleTag({ content: '*, *::before, *::after { transition: none !important; animation: none !important; }' });
@@ -100,7 +102,7 @@ export async function scanPage(context, url, { tags }) {
     const axeResult = await page.evaluate(runAxeInPage, { runOptions: axeRunOptions(tags), maxHtml: MAX_HTML });
     // Rules axe-core does not have; they reuse the axe instance already on the page.
     const customRaw = await page.evaluate(runCustomRulesInPage, { maxHtml: MAX_HTML });
-    return combineResults(axeResult, customRaw, page.url());
+    return combineResults(axeResult, customRaw, page.url(), thirdPartyStylesNote(missing.thirdParty));
   } finally {
     await page.close().catch(() => {});
   }
