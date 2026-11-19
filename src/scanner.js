@@ -7,9 +7,9 @@ import { join } from 'node:path';
 import { chromium } from 'playwright-core';
 import { runCustomRulesInPage } from './core/custom-rules.js';
 import {
-  DEVICES, MAX_HTML, axeRunOptions, combineResults, crawl, devicesFor, engineLabel,
-  mergeViewportResults, runAxeInPage, stylesMissingMessage, tagsFor, thirdPartyStylesNote,
-  trackStylesheetErrorsInPage, unloadedStylesheetsInPage,
+  DEVICES, MAX_HTML, axeRunOptions, brokenStylesNote, combineResults, crawl, devicesFor,
+  engineLabel, joinNotes, mergeViewportResults, runAxeInPage, stylesMissingMessage, tagsFor,
+  thirdPartyStylesNote, trackStylesheetErrorsInPage, unloadedStylesheetsInPage,
 } from './core/engine.js';
 
 const require = createRequire(import.meta.url);
@@ -70,6 +70,15 @@ export async function launchBrowser() {
 /** Load one URL in a fresh tab and evaluate it. Throws if the page cannot be loaded. */
 export async function scanPage(context, url, { tags }) {
   const page = await context.newPage();
+  // What the server answered for each stylesheet, by the address the page asked for.
+  const answered = new Map();
+  page.on('response', (r) => {
+    if (r.request().resourceType() !== 'stylesheet' || (r.status() >= 300 && r.status() < 400)) return;
+    let first = r.request();
+    while (first.redirectedFrom()) first = first.redirectedFrom();
+    answered.set(first.url(), r.status());
+    answered.set(r.url(), r.status());
+  });
   try {
     let response;
     try {
@@ -87,22 +96,27 @@ export async function scanPage(context, url, { tags }) {
     if (type && !/html/i.test(type)) throw new Error(`Not an HTML page (${type.split(';')[0]})`);
     await page.waitForLoadState('networkidle', { timeout: SETTLE_TIMEOUT_MS }).catch(() => {});
     // A stylesheet lost to a dropped connection leaves the page unstyled; load it again once.
+    // One the server answered with an error will not load on a second try either.
     let missing = await page.evaluate(unloadedStylesheetsInPage);
-    if (missing.own.length || missing.thirdParty.length) {
+    if ([...missing.own, ...missing.thirdParty].some((href) => !(answered.get(href) >= 400))) {
       await page.reload({ waitUntil: 'load', timeout: NAV_TIMEOUT_MS });
       await page.waitForLoadState('networkidle', { timeout: SETTLE_TIMEOUT_MS }).catch(() => {});
       missing = await page.evaluate(unloadedStylesheetsInPage);
-      // Without the site's own styles the results would be wrong. Without a
-      // third-party one (usually web fonts) they are usable; the page keeps a note.
-      if (missing.own.length) throw new Error(stylesMissingMessage(missing.own));
     }
+    // Without the site's own styles the results would be wrong, so a stylesheet
+    // that got no answer fails the page. One the site answered but did not serve
+    // (a broken link) is how visitors get the page, and one from a third party
+    // (usually web fonts) leaves the layout intact: both are scanned, with a note.
+    const lost = missing.own.filter((href) => !answered.has(href));
+    if (lost.length) throw new Error(stylesMissingMessage(lost));
+    const broken = missing.own.map((href) => [href, answered.get(href)]);
     // Finish any fade or slide at once, so colours are not measured mid-animation.
     await page.addStyleTag({ content: '*, *::before, *::after { transition: none !important; animation: none !important; }' });
     await page.addScriptTag({ content: axeSource });
     const axeResult = await page.evaluate(runAxeInPage, { runOptions: axeRunOptions(tags), maxHtml: MAX_HTML });
     // Rules axe-core does not have; they reuse the axe instance already on the page.
     const customRaw = await page.evaluate(runCustomRulesInPage, { maxHtml: MAX_HTML });
-    return combineResults(axeResult, customRaw, page.url(), thirdPartyStylesNote(missing.thirdParty));
+    return combineResults(axeResult, customRaw, page.url(), joinNotes(brokenStylesNote(broken), thirdPartyStylesNote(missing.thirdParty)));
   } finally {
     await page.close().catch(() => {});
   }

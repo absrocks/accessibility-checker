@@ -15,7 +15,7 @@
 // a "mobile" scan is a narrow window, not an emulated phone.
 import { runCustomRulesInPage } from './lib/custom-rules.js';
 import {
-  DEVICES, MAX_HTML, axeRunOptions, combineResults, crawl, devicesFor,
+  DEVICES, MAX_HTML, axeRunOptions, brokenStylesNote, combineResults, crawl, devicesFor, joinNotes,
   mergeViewportResults, runAxeInPage, stylesMissingMessage, tagsFor, thirdPartyStylesNote,
   trackStylesheetErrorsInPage, unloadedStylesheetsInPage,
 } from './lib/engine.js';
@@ -24,7 +24,7 @@ const SCAN_TIMEOUT_MS = 60_000;
 
 /** Runs inside the frame, after axe-core. Self-contained: sent as source text. */
 /* c8 ignore start */
-function frameMain(id, runOptions, maxHtml, runAxe, runCustom, unloadedStylesheets) {
+function frameMain(id, runOptions, maxHtml, tolerated, runAxe, runCustom, unloadedStylesheets) {
   let started = false;
   const reply = (payload) => window.parent.postMessage({ checkerScan: id, ...payload }, '*');
   const run = async () => {
@@ -33,7 +33,9 @@ function frameMain(id, runOptions, maxHtml, runAxe, runCustom, unloadedStyleshee
     try {
       if (!window.axe) throw new Error('axe-core did not start in the page');
       const missing = unloadedStylesheets();
-      if (missing.own.length) return reply({ ok: false, stylesMissing: missing.own });
+      // `tolerated` are stylesheets already known to be broken links on the site itself.
+      const lost = missing.own.filter((href) => !tolerated.includes(href));
+      if (lost.length) return reply({ ok: false, stylesMissing: lost });
       if (document.fonts && document.fonts.ready) {
         await Promise.race([document.fonts.ready, new Promise((r) => setTimeout(r, 3000))]);
       }
@@ -43,7 +45,7 @@ function frameMain(id, runOptions, maxHtml, runAxe, runCustom, unloadedStyleshee
       document.head.append(style);
       const axeResult = await runAxe({ runOptions, maxHtml });
       const customRaw = runCustom({ maxHtml });
-      reply({ ok: true, axeResult, customRaw, thirdPartyStyles: missing.thirdParty });
+      reply({ ok: true, axeResult, customRaw, brokenStyles: missing.own, thirdPartyStyles: missing.thirdParty });
     } catch (e) {
       reply({ ok: false, error: String((e && e.message) || e) });
     }
@@ -78,6 +80,28 @@ async function explainFailure(url) {
       '(If you run the site: it would need to send the header Access-Control-Allow-Origin.)';
   } catch {
     return 'This address could not be reached. Check it and your connection, then run the scan again.';
+  }
+}
+
+/**
+ * What the site answers for a stylesheet that did not load in the scan frame:
+ * its HTTP status, 0 if it answers but the answer cannot be read from here,
+ * or null if it does not answer. `lenient` is for a stylesheet that has now
+ * failed twice: any answer then means the site does not serve it as a
+ * stylesheet. On the first failure only a readable error status counts, since
+ * a dropped connection looks the same as an unreadable answer.
+ */
+async function stylesheetAnswer(href, lenient) {
+  try {
+    const response = await fetch(href, { credentials: 'omit', cache: 'no-store' });
+    return response.status >= 400 || lenient ? response.status : null;
+  } catch { /* not readable from here, or not reachable */ }
+  if (!lenient) return null;
+  try {
+    await fetch(href, { mode: 'no-cors', credentials: 'omit', cache: 'no-store' });
+    return 0;
+  } catch {
+    return null;
   }
 }
 
@@ -147,13 +171,16 @@ export function prepareHtml(html, pageUrl, scripts, headScripts = []) {
 
 let scanCounter = 0;
 
-/** Render prepared HTML at one viewport and run the rules in it. */
-function scanInFrame(page, deviceName, tags, axeSource) {
+/**
+ * Render prepared HTML at one viewport and run the rules in it. `broken` maps
+ * the stylesheets known to be broken links on the site to their HTTP status.
+ */
+function scanInFrame(page, deviceName, tags, axeSource, broken = new Map()) {
   return new Promise((resolve, reject) => {
     const id = `scan-${Date.now()}-${++scanCounter}`;
     const { width, height } = DEVICES[deviceName].viewport;
     const runner =
-      `${axeSource}\n;(${frameMain.toString()})(${JSON.stringify(id)}, ${JSON.stringify(axeRunOptions(tags))}, ${MAX_HTML}, ` +
+      `${axeSource}\n;(${frameMain.toString()})(${JSON.stringify(id)}, ${JSON.stringify(axeRunOptions(tags))}, ${MAX_HTML}, ${JSON.stringify([...broken.keys()])}, ` +
       `${runAxeInPage.toString()}, ${runCustomRulesInPage.toString()}, ${unloadedStylesheetsInPage.toString()});`;
 
     const frame = document.createElement('iframe');
@@ -174,8 +201,13 @@ function scanInFrame(page, deviceName, tags, axeSource) {
     };
     const onMessage = (event) => {
       if (event.source !== frame.contentWindow || event.data?.checkerScan !== id) return;
-      if (event.data.ok) finish(resolve, combineResults(event.data.axeResult, event.data.customRaw, page.url, thirdPartyStylesNote(event.data.thirdPartyStyles)));
-      else if (event.data.stylesMissing) finish(reject, Object.assign(new Error(stylesMissingMessage(event.data.stylesMissing)), { stylesMissing: true }));
+      if (event.data.ok) {
+        const note = joinNotes(
+          brokenStylesNote(event.data.brokenStyles.map((href) => [href, broken.get(href)])),
+          thirdPartyStylesNote(event.data.thirdPartyStyles),
+        );
+        finish(resolve, combineResults(event.data.axeResult, event.data.customRaw, page.url, note));
+      } else if (event.data.stylesMissing) finish(reject, Object.assign(new Error(stylesMissingMessage(event.data.stylesMissing)), { stylesMissing: event.data.stylesMissing }));
       else finish(reject, new Error(`The page could not be evaluated: ${event.data.error}`));
     };
     const timer = setTimeout(() => finish(reject, new Error('The page took too long to load and evaluate')), SCAN_TIMEOUT_MS);
@@ -186,6 +218,32 @@ function scanInFrame(page, deviceName, tags, axeSource) {
       [`data:text/javascript;base64,${toBase64(`(${trackStylesheetErrorsInPage.toString()})();`)}`]);
     document.body.append(frame);
   });
+}
+
+/**
+ * Scan one page at one viewport, dealing with stylesheets that do not load.
+ * One lost to a dropped connection leaves the page unstyled, so the page is
+ * rendered again; if it is still missing and the site gives no answer for it,
+ * the scan refuses. One the site answers but does not serve is a broken link
+ * that every visitor gets: the page is scanned with a note.
+ */
+async function scanOneViewport(page, device, tags, axeSource) {
+  const broken = new Map();
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await scanInFrame(page, device, tags, axeSource, broken);
+    } catch (e) {
+      if (!e.stylesMissing || attempt === 3) throw e;
+      let lost = 0;
+      for (const href of e.stylesMissing) {
+        const status = await stylesheetAnswer(href, attempt === 2);
+        if (status === null) lost += 1;
+        else broken.set(href, status);
+      }
+      if (lost && attempt === 2) throw e;
+      if (lost) await pause(800);
+    }
+  }
 }
 
 /** A scanner with the same shape as the server's crawlAndScan(scan, onPage). */
@@ -211,16 +269,7 @@ export function createBrowserScanner({ axeUrl }) {
     await crawl(scan, async (url) => {
       const page = await fetchPage(url);
       const perViewport = [];
-      for (const device of devices) {
-        try {
-          perViewport.push(await scanInFrame(page, device, tags, axeSource));
-        } catch (e) {
-          // A stylesheet lost to a dropped connection leaves the page unstyled; render it again once.
-          if (!e.stylesMissing) throw e;
-          await pause(800);
-          perViewport.push(await scanInFrame(page, device, tags, axeSource));
-        }
-      }
+      for (const device of devices) perViewport.push(await scanOneViewport(page, device, tags, axeSource));
       return mergeViewportResults(perViewport, devices);
     }, onPage);
   };

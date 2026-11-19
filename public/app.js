@@ -381,7 +381,7 @@ async function viewScan([id], query) {
   if (noted.length) {
     head.push(h('p', { class: 'card notice' }, noted.length === 1 && data.pages.length === 1
       ? `Note: ${noted[0].note}`
-      : `Note: ${noted.length} of ${data.pages.length} pages ${noted.length === 1 ? 'was' : 'were'} scanned without a third-party stylesheet. See "By page" for which.`));
+      : `Note: ${noted.length} of ${data.pages.length} pages ${noted.length === 1 ? 'was' : 'were'} scanned without one of the stylesheets they link to. See "By page" for which.`));
   }
   const summary = h('div', { class: 'grid' },
     h('section', { class: 'card' }, h('h2', {}, 'Score'), h('div', { class: 'score' }, scoreRing(scan.score),

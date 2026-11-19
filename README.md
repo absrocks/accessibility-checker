@@ -220,11 +220,13 @@ and moderate rules are charged the same as serious ones here.
   text missing from an accessible name.
 - The published copy can only scan sites that allow other websites to read
   them; see "Publish a copy that runs in the browser".
-- A page whose own stylesheet fails to load is not reported on. Checked
-  without its styles, a page produces hundreds of false findings, so both
-  scanners load it once more and then fail that page with a message naming
-  the stylesheet. A stylesheet from another site that fails, typically web
-  fonts, does not stop the scan; the page is scanned and carries a note.
+- A page whose own stylesheet gets no answer from the server is not reported
+  on. Checked without its styles, a page produces hundreds of false findings,
+  so both scanners load it once more and then fail that page with a message
+  naming the stylesheet. Two cases do not stop the scan; the page is scanned
+  and carries a note. One is a link to a stylesheet the site answers with an
+  error for, such as a file that does not exist: every visitor gets the page
+  that way. The other is a stylesheet from another site, typically web fonts.
 - Content inside iframes is not evaluated.
 - Pages behind a login are not reachable; the scanner has no session.
 - The crawler follows links found in the page, not sitemaps, and does not read

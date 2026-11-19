@@ -26,6 +26,7 @@ let site, api, store, queue, siteUrl, apiUrl;
 before(async () => {
   site = createServer(async (req, res) => {
     const name = req.url === '/' ? 'bad.html' : req.url.slice(1).split('?')[0];
+    if (name === 'dropped-style.css') return req.socket.destroy(); // a connection lost on the way
     try {
       const html = await readFile(join(fixtures, name));
       res.writeHead(200, { 'Content-Type': name.endsWith('.css') ? 'text/css' : 'text/html; charset=utf-8' }).end(html);
@@ -155,7 +156,16 @@ test('refuses to report on a page whose styles did not load', { skip: !browserAv
   await queue.whenIdle();
   const { body } = await call(`/api/scans/${created.body.id}`);
   assert.equal(body.scan.status, 'failed');
-  assert.match(body.scan.error, /styles did not load \(http:\/\/127\.0\.0\.1:\d+\/missing-style\.css\)/);
+  assert.match(body.scan.error, /styles did not load \(http:\/\/127\.0\.0\.1:\d+\/dropped-style\.css\)/);
+});
+
+test('scans a page that links to a stylesheet its site does not have, and says so', { skip: !browserAvailable && 'no browser available' }, async () => {
+  const created = await post('/api/scans', { urls: [`${siteUrl}/broken-link.html`], viewport: 'desktop' });
+  await queue.whenIdle();
+  const { body } = await call(`/api/scans/${created.body.id}`);
+  assert.equal(body.scan.status, 'done', body.scan.error);
+  assert.equal(body.pages[0].score, 85);
+  assert.match(body.pages[0].note, /^The page links to a stylesheet that the site does not serve: http:\/\/127\.0\.0\.1:\d+\/missing-style\.css \(HTTP 404\)\. Visitors get the page without it/);
 });
 
 test('scans a page whose third-party stylesheet did not load, and says so', { skip: !browserAvailable && 'no browser available' }, async () => {

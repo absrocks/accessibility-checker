@@ -21,6 +21,7 @@ function serve(dir, headers = {}) {
   const server = createServer(async (req, res) => {
     let rel = normalize(decodeURIComponent(req.url.split('?')[0])).replace(/^(\.\.[/\\])+/, '');
     if (rel.endsWith('/')) rel += 'index.html';
+    if (rel.endsWith('dropped-style.css')) return req.socket.destroy(); // a connection lost on the way
     try {
       const body = await readFile(join(dir, rel));
       res.writeHead(200, { 'Content-Type': MIME[extname(rel)] || 'application/octet-stream', ...headers }).end(body);
@@ -138,7 +139,14 @@ test('says plainly when a site does not allow itself to be read', { skip: !brows
 test('refuses to report on a page whose styles did not load', { skip: !browser && 'no browser available' }, async () => {
   const detail = await scanAndWait({ urls: [`${urlOf(openSite)}/nostyle.html`], viewport: 'desktop' });
   assert.equal(detail.scan.status, 'failed');
-  assert.match(detail.scan.error, /styles did not load \(http:\/\/127\.0\.0\.1:\d+\/missing-style\.css\)/);
+  assert.match(detail.scan.error, /styles did not load \(http:\/\/127\.0\.0\.1:\d+\/dropped-style\.css\)/);
+});
+
+test('scans a page that links to a stylesheet its site does not have, and says so', { skip: !browser && 'no browser available' }, async () => {
+  const detail = await scanAndWait({ urls: [`${urlOf(openSite)}/broken-link.html`], viewport: 'desktop' });
+  assert.equal(detail.scan.status, 'done', detail.scan.error);
+  assert.equal(detail.pages[0].score, 85);
+  assert.match(detail.pages[0].note, /^The page links to a stylesheet that the site does not serve: http:\/\/127\.0\.0\.1:\d+\/missing-style\.css \(HTTP 404\)\. Visitors get the page without it/);
 });
 
 test('scans a page whose third-party stylesheet did not load, and says so', { skip: !browser && 'no browser available' }, async () => {

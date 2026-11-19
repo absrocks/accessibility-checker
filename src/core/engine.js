@@ -122,7 +122,10 @@ export async function runAxeInPage({ runOptions, maxHtml }) {
 /**
  * A page checked without its styles gives wrong results (everything visible,
  * tiny targets, no colours), so scanners retry and then refuse instead of
- * reporting them. A failed stylesheet cannot be seen afterwards, so the
+ * reporting them. That is for a stylesheet lost on the way (no answer from
+ * the server). One the server answers with an error, such as a link to a
+ * file that does not exist, is how every visitor gets the page: it is
+ * scanned, with a note. A failed stylesheet cannot be seen afterwards, so the
  * first function must run before the page's links load: it records each
  * stylesheet that fails. The second returns what was recorded. Both run
  * inside the page and are self-contained.
@@ -163,6 +166,23 @@ export function thirdPartyStylesNote(hrefs) {
   return `Scanned without ${hrefs.length === 1 ? 'a stylesheet' : `${hrefs.length} stylesheets`} from ${hosts.join(', ')}, which did not load. ` +
     'Fonts or styling from there were not applied, which can change contrast and size results slightly.';
 }
+
+/**
+ * A note kept with a page that links to a stylesheet its own site does not
+ * serve. `broken` is a list of [address, HTTP status]; the status is 0 when
+ * it could not be read. Every visitor gets the page the same way, so it is
+ * scanned as it is.
+ */
+export function brokenStylesNote(broken) {
+  if (!broken?.length) return null;
+  const list = broken.map(([href, status]) => `${href}${status >= 400 ? ` (HTTP ${status})` : ''}`).join(', ');
+  const one = broken.length === 1;
+  return `The page links to ${one ? 'a stylesheet' : `${broken.length} stylesheets`} that the site does not serve: ${list}. ` +
+    `Visitors get the page without ${one ? 'it' : 'them'}, so it was scanned that way.`;
+}
+
+/** Several notes about one page, as one. */
+export const joinNotes = (...notes) => notes.filter(Boolean).join(' ') || null;
 
 /** The message for a page whose own styles could not be loaded. */
 export const stylesMissingMessage = (hrefs) =>
